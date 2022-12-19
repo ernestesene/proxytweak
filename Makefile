@@ -27,5 +27,5 @@ TAGS:
 clean:
 	-rm $(OBJS) $(PROGRAM) tags TAGS
 
-backup: clean
-	-cp -au * ~/tmp2/projects/proxytweak
+backup:
+	-cp -au *.c *.h Makefile ~/tmp2/projects/proxytweak
