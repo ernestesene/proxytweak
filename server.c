@@ -73,6 +73,11 @@ int ssl_configure_context(SSL_CTX *ctx, enum ssl_method method) {
       ERR_print_errors_fp(stderr);
       return 1;
     }
+    /* check if private key matches the certificate public key */
+    if (SSL_CTX_check_private_key(ctx) != 1) {
+      ERR_print_errors_fp(stderr);
+      return 1;
+    }
   } else if (method == client_method) {
     SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv3 | SSL_OP_NO_SSLv2);
   } else
