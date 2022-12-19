@@ -1,9 +1,5 @@
+proxytweak
 *.o
-main.old.c
 cscope.out
 tags
 TAGS
-rootCA.*
-domain.*
-*.pem
-*.csr
