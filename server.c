@@ -74,7 +74,7 @@ int ssl_configure_context(SSL_CTX *ctx, enum ssl_method method) {
       return 1;
     }
   } else if (method == client_method) {
-    SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv2);
+    SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv3 | SSL_OP_NO_SSLv2);
   } else
     return 1;
   return 0;
