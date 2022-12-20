@@ -171,8 +171,13 @@ static void proxy_ssl(int fd, const char *host) {
   /* local server SSL  and handshake */
   SSL *ssl_local = SSL_new(ctx_server);
   SSL_set_fd(ssl_local, fd);
-  if (SSL_accept(ssl_local) <= 0) {
-    ERR_print_errors_fp(stderr);
+  err = SSL_accept(ssl_local);
+  if (err <= 0) {
+    err = SSL_get_error(ssl_local, err);
+    if (err == SSL_ERROR_SYSCALL)
+      perror("SSL_accept");
+    else
+      ERR_print_errors_fp(stderr);
     goto ssl_cleanup;
   }
 
