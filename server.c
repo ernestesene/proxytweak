@@ -153,17 +153,17 @@ static void proxy_ssl(int fd, const char *host) {
   char response_buf[RESPONSE_MAX] = {0};
   size_t response_len = -1;
 
-  write(fd, response_ok, sizeof(response_ok));
+  write(fd, response_ok, sizeof(response_ok) - 1);
   // read perform TLS handshake with client
   if (ctx_server == NULL) ctx_server = ssl_create_context(server_method);
   if (ctx_server == NULL) {
-    write(fd, response_err, sizeof(response_err));
+    write(fd, response_err, sizeof(response_err) - 1);
     close(fd);
     return;
   }
   err = ssl_configure_context(ctx_server, server_method);
   if (err) {
-    write(fd, response_err, sizeof(response_err));
+    write(fd, response_err, sizeof(response_err) - 1);
     close(fd);
     return;
   }
@@ -219,7 +219,7 @@ static void proxy_ssl(int fd, const char *host) {
     req.host = host;
     err = parse_request(request, request_len, &req);
     if (err) {
-      SSL_write(ssl_local, response_err, sizeof(response_err));
+      SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
       continue;
     }
     if (req.header2 != NULL)
@@ -232,7 +232,7 @@ static void proxy_ssl(int fd, const char *host) {
                    req.method, req.host, req.path, req.header1);
 
     if (req_hdr_remote_len < 1) {
-      SSL_write(ssl_local, response_err, sizeof(response_err));
+      SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
       continue;
     }
     // #warning "reusing variable request[] for storing payload"
@@ -264,7 +264,7 @@ static void proxy_ssl(int fd, const char *host) {
     if (fd_remote < 0) fd_remote = connect_remote_server();
     if (fd_remote < 0) {
       /* TODO reply "can't connect to upstream proxy" */
-      SSL_write(ssl_local, response_err, sizeof(response_err));
+      SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
       continue;
     }
     if (ctx_client == NULL) {
@@ -280,7 +280,7 @@ static void proxy_ssl(int fd, const char *host) {
       if (err != 1) {
         ERR_print_errors_fp(stderr);
         /* TODO */
-        SSL_write(ssl_local, response_err, sizeof(response_err));
+        SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
         goto ssl_cleanup;
       }
       /* TODO: certificate check here */
@@ -372,14 +372,14 @@ int server(int fd) {
     if (err == 0) {
       err = parse_connect_request(request, method, host);
       if (err) {
-        write(fd, response_err, sizeof(response_err));
+        write(fd, response_err, sizeof(response_err) - 1);
         continue;
       }
 #ifdef DEBUG
       fprintf(stderr, "Received connect request to host %s\n", host);
 #endif
       proxy_ssl(fd, host);
-      // write(fd, response_ok, sizeof(response_ok));
+      // write(fd, response_ok, sizeof(response_ok) - 1);
     } else {
       //    proxy_nossl(fd, request);
     }
