@@ -79,6 +79,8 @@ int ssl_configure_context(SSL_CTX *ctx, enum ssl_method method) {
       return 1;
     }
   } else if (method == client_method) {
+    SSL_CTX_load_verify_locations(ctx, "/etc/ssl/certs/ca-certificates.crt",
+                                  NULL);
     SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv3 | SSL_OP_NO_SSLv2);
   } else
     return 1;
@@ -283,7 +285,24 @@ static void proxy_ssl(int fd, const char *host) {
         SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
         goto ssl_cleanup;
       }
-      /* TODO: certificate check here */
+
+      X509 *cert = SSL_get_peer_certificate(ssl_remote);
+      if (cert)
+        X509_free(cert);
+      else {
+        fprintf(stderr, "SSL: no remote peer's certificate\n");
+        ERR_print_errors_fp(stderr);
+        SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
+        goto ssl_cleanup;
+      }
+      err = SSL_get_verify_result(ssl_remote);
+      if (X509_V_OK != err) {
+        /* TODO better err message via ERR_reason_error_string(err); */
+        fprintf(stderr, "SSL: verify remote peer's certificate error\n");
+        SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
+        goto ssl_cleanup;
+      }
+      /* TODO remote peer host name verification */
     }
 
     // send request to remote proxy server(web worker)
