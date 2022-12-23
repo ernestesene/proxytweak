@@ -322,7 +322,7 @@ static void proxy_ssl(int fd, const char *host) {
        *
        * this will allow for reuse of both ssl_remote and ssl_client
        * connections
-       *
+       * ???verify next line.
        * only header is always sent on first read, parse "Content-Length: "
        * then re-fetch if content_len > 0 till the length is reached,
        * OR broken connection, in later case terminate both upstream and local
@@ -331,8 +331,10 @@ static void proxy_ssl(int fd, const char *host) {
        * NOTE: "Content-Length: " does not apply to "HEAD" request.
        */
       response_len = SSL_read(ssl_remote, response_buf, sizeof(response_buf));
-      if (response_len > 0) SSL_write(ssl_local, response_buf, response_len);
-
+      if (response_len > 0) {
+        err = SSL_write(ssl_local, response_buf, response_len);
+        if (err != (int)response_len) goto ssl_cleanup;
+      }
     } while (response_len > 0);
     break;
     // GOTO STEP:5
