@@ -3,9 +3,9 @@ CC=cc
 
 L_SSL=-lssl -lcrypto
 LIBS=-lpthread $(L_SSL)
-DEBUG=-ggdb -DDEBUG -Og
-CFLAGS=-c -O2 -Wall -Wextra $(DEBUG)
-LDFLAGS=-O2 $(LIBS) $(DEBUG)
+DEBUG=-DDEBUG -ggdb -Og
+CFLAGS=-c -Wall -Wextra $(DEBUG)
+LDFLAGS=$(LIBS)
 
 OBJS=main.o server.o helper.o
 
