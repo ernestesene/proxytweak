@@ -1,146 +1,22 @@
 #include "server.h"
 
-#include <openssl/err.h>
-#include <openssl/ssl.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "helper.h"
+#include "http_helper.h"
+#include "tls_helper.h"
+#include "tweak.h"
 
-#define RESQUEST_MAX 16384 /* 16KB */
-#define RESPONSE_MAX 16384 /* 16KB */
+static const char response_err[] = "HTTP/1.1 400 Bad request\r\n\r\n";
+static const char response_ok[] = "HTTP/1.1 200 OK\r\n\r\n";
 
-#define HOST_MAX 64
-
-#define HOST_REMOTE "router.eroken.workers.dev"
-
-struct request {
-  size_t content_length; /* equivalent to payload_length */
-  const char *payload;
-  size_t payload_length;
-  const char *method;
-  const char *path;
-  const char *host;
-  const char *header1; /* before Host: foo.bar */
-  const char *header2; /* after Host: foo.bar\r\n */
-};
-
-/* includes header2 */
-static const char *req_hdr_fmt1 =
-    "%s /prox1/%s%s HTTP/1.1\r\nHost: router.eroken.workers.dev\r\n"
-    "%s\r\n%s\r\nConnection: close\r\n\r\n";
-/* no header2 */
-static const char *req_hdr_fmt2 =
-    "%s /prox1/%s%s HTTP/1.1\r\nHost: router.eroken.workers.dev\r\n"
-    "%s\r\nConnection: close\r\n\r\n";
 /* TODO may cause race condition */
 static SSL_CTX *ctx_server = NULL, *ctx_client = NULL;
-/* TODO change bad_request to match HTTP RESPONSE */
-static char response_err[] = "Bad request\r\n\r\n";
-static char response_ok[] = "HTTP/1.1 200 OK\r\n\r\n";
-
-enum ssl_method { client_method, server_method };
-
-SSL_CTX *ssl_create_context(enum ssl_method method) {
-  const SSL_METHOD *_method = NULL;
-  SSL_CTX *ctx = NULL;
-
-  if (method == client_method)
-    _method = TLS_client_method();
-  else
-    _method = TLS_server_method();
-  ctx = SSL_CTX_new(_method);
-  if (!ctx) {
-    perror("SSL create context error");
-    ERR_print_errors_fp(stderr);
-    return NULL;
-  }
-  return ctx;
-}
-
-int ssl_configure_context(SSL_CTX *ctx, enum ssl_method method) {
-  /* Set the key and cert to use */
-  if (method == server_method) {
-    if (SSL_CTX_use_certificate_file(ctx, "selfsign.crt", SSL_FILETYPE_PEM) <=
-        0) {
-      ERR_print_errors_fp(stderr);
-      return 1;
-    }
-    if (SSL_CTX_use_PrivateKey_file(ctx, "selfsign.key", SSL_FILETYPE_PEM) <=
-        0) {
-      ERR_print_errors_fp(stderr);
-      return 1;
-    }
-    /* check if private key matches the certificate public key */
-    if (SSL_CTX_check_private_key(ctx) != 1) {
-      ERR_print_errors_fp(stderr);
-      return 1;
-    }
-  } else if (method == client_method) {
-    SSL_CTX_load_verify_locations(ctx, "/etc/ssl/certs/ca-certificates.crt",
-                                  NULL);
-    SSL_CTX_set_options(ctx, SSL_OP_NO_SSLv3 | SSL_OP_NO_SSLv2);
-  } else
-    return 1;
-  return 0;
-}
 
 // static void proxy_nossl(int fd, const char *request){}
-/* TODO check for errors */
-static int parse_request(char *request, size_t request_len,
-                         struct request *req) {
-  char *needle;
-  int err = -1;
 
-  /* content length and payload first */
-  const char content_length[] = "Content-Length: ";
-  needle = strstr(request, content_length);
-  if (needle == NULL)
-    req->content_length = 0;
-  else {
-    /* needle += strlen(content_length); */
-    needle += sizeof(content_length) - 1;
-    req->content_length = atoi(needle);
-
-    /* only if payload is part of header */
-    needle = strstr(request, "\r\n\r\n") + 4;
-    if (*needle == '\0')
-      req->payload = NULL;
-    else {
-      req->payload = needle;
-      /* check if payload_length == content_length */
-      req->payload_length = request + request_len - needle;
-      if (req->payload_length != req->content_length) {
-        fprintf(stderr, "payload_length: %ld != content_length: %ld\n",
-                req->payload_length, req->content_length);
-        return -1;
-      }
-    }
-  }
-
-  req->method = strtok_r(request, " ", &needle);
-  req->path = strtok_r(NULL, " ", &needle);
-  strtok_r(NULL, "\n", &needle); /* HTTP/1.1\r\n */
-
-  err = strncmp(needle, "Host:", 5);
-  if (err == 0)
-    req->header2 = NULL;
-  else {
-    req->header2 = needle;
-    needle = strstr(needle, "\r\nHost:");
-    *needle = '\0';      /* Null terminate req->header2 */
-    needle = needle + 2; /* advandce to "Host:" */
-  }
-  needle = strstr(needle, "\n");
-  needle++;
-  req->header1 = needle;
-  needle = strstr(needle, "\r\n\r\n");
-  *needle = '\0'; /* Null terminate req->header1 */
-
-  return 0;
-}
 static void proxy_ssl(int fd, const char *host) {
   /* TODO connect to remote proxy server (web worker) */
   int err = -1;
@@ -225,13 +101,13 @@ static void proxy_ssl(int fd, const char *host) {
       continue;
     }
     if (req.header2 != NULL)
-      req_hdr_remote_len =
-          snprintf(req_hdr_remote, sizeof(req_hdr_remote), req_hdr_fmt1,
-                   req.method, req.host, req.path, req.header1, req.header2);
+      req_hdr_remote_len = snprintf(
+          req_hdr_remote, sizeof(req_hdr_remote), req_hdr_fmt1, req.method,
+          req.host, req.path, HOST_REMOTE, req.header1, req.header2);
     else
       req_hdr_remote_len =
           snprintf(req_hdr_remote, sizeof(req_hdr_remote), req_hdr_fmt2,
-                   req.method, req.host, req.path, req.header1);
+                   req.method, req.host, req.path, HOST_REMOTE, req.header1);
 
     if (req_hdr_remote_len < 1) {
       SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
@@ -354,17 +230,6 @@ ssl_cleanup:
     close(fd_remote);
   }
   return;
-}
-
-/* TODO: possible buffer overflow here */
-static int parse_connect_request(char *req, char *method, char *host) {
-  char *_method = NULL, *_host = NULL;
-  _method = strtok(req, " ");
-  _host = strtok(NULL, ": ");
-  if (_method == NULL || _host == NULL) return 1;
-  strcpy(method, _method);
-  strcpy(host, _host);
-  return 0;
 }
 
 int server(int fd) {
