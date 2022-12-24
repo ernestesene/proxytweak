@@ -4,8 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "helper.h"
 #include "http_helper.h"
+#include "socket_helper.h"
 #include "tls_helper.h"
 #include "tweak.h"
 
