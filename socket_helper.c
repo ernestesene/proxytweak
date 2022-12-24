@@ -14,7 +14,11 @@ int connect_remote_server() {
 
   /* TRICK: only to trick uptream network to enable connection */
   void *hostent = gethostbyname("ncdc.gov.ng");
-  if (hostent == NULL) return -1;
+  if (hostent == NULL) {
+    fprintf(stderr,
+            "Can't resolve host to address. Check network connection.\n");
+    return -1;
+  }
 
   fd = socket(PF_INET, SOCK_STREAM, 0);
   addr.sin_family = AF_INET;
