@@ -198,11 +198,10 @@ static void proxy_ssl(int fd, const char *host) {
        *
        * this will allow for reuse of both ssl_remote and ssl_client
        * connections
-       * ???verify next line.
-       * only header is always sent on first read, parse "Content-Length: "
-       * then re-fetch if content_len > 0 till the length is reached,
-       * OR broken connection, in later case terminate both upstream and local
-       * connections via "goto ssl_cleanup"
+       *
+       * NOTE: Watch out for header "Transfer-Encoding: chunked", when present,
+       * there is no "Content-Length:" header. It ends in "\r\n\r\n" check
+       * RFC-2616 for details.
        *
        * NOTE: "Content-Length: " does not apply to "HEAD" request.
        */
