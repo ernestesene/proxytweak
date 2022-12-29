@@ -32,7 +32,6 @@ static void proxy_ssl(int fd, const char *host) {
   size_t response_len = -1;
 
   write(fd, response_ok, sizeof(response_ok) - 1);
-  // read perform TLS handshake with client
   if (ctx_server == NULL) ctx_server = ssl_create_context(server_method);
   if (ctx_server == NULL) {
     write(fd, response_err, sizeof(response_err) - 1);
@@ -59,31 +58,14 @@ static void proxy_ssl(int fd, const char *host) {
     goto ssl_cleanup;
   }
 
-  // STEP:5
   while (1) {
-    fprintf(stderr, "While_loop\n");
-    // read request from client(GOTO clean_up on error)
     request_len = SSL_read(ssl_local, (void *)request, sizeof(request));
 
-    fprintf(stderr, "While_ssl_localread\n");
     if (request_len <= 0) {
       ERR_print_errors_fp(stderr);
       goto ssl_cleanup;
     }
     *(request + request_len) = '\0';
-    /* TODO ##PAYLOAD
-     *
-     * sometimes, only header is read on first read.
-     * payload can be read by re-reading the fd.
-     * it will block if no payload is present. (undesired behaviour)
-     *
-     * read header, parse header for value of "Content-Length: "
-     * if content_length > 0 then read payload if no payload in header
-
-        char PAYLOAD[RESQUEST_MAX] = {'\0'};
-        int payload_length = SSL_read(ssl_local, (void *)PAYLOAD,
-     sizeof(PAYLOAD));
-    */
 
 #ifdef DEBUG
 
@@ -92,7 +74,6 @@ static void proxy_ssl(int fd, const char *host) {
     printf("Request length is: %ldbytes\n", (long)request_len);
     printf("Request is \n\n%s\n", request);
 #endif
-    // parse request
     struct request req = {0};
     req.host = host;
     err = parse_request(request, request_len, &req);
@@ -187,24 +168,8 @@ static void proxy_ssl(int fd, const char *host) {
     if (req.payload_length > 0)
       SSL_write(ssl_remote, req.payload, req.payload_length);
 
-    // wait for response
-
     // read response from remote and send to client(GOTO clean_up on error)
     do {
-      /* TODO ##
-       * instead of relying on header "Connection: close" to know when data
-       * transfer is complete, use header "Content-Length: " to determine
-       * payload size and re-fetch till size is reached.
-       *
-       * this will allow for reuse of both ssl_remote and ssl_client
-       * connections
-       *
-       * NOTE: Watch out for header "Transfer-Encoding: chunked", when present,
-       * there is no "Content-Length:" header. It ends in "\r\n\r\n" check
-       * RFC-2616 for details.
-       *
-       * NOTE: "Content-Length: " does not apply to "HEAD" request.
-       */
       response_len = SSL_read(ssl_remote, response_buf, sizeof(response_buf));
       if (response_len > 0) {
         err = SSL_write(ssl_local, response_buf, response_len);
@@ -212,11 +177,7 @@ static void proxy_ssl(int fd, const char *host) {
       }
     } while (response_len > 0);
     break;
-    // GOTO STEP:5
   }
-  //
-  // Clean_up: (handle error here)
-
 ssl_cleanup:
   SSL_shutdown(ssl_local);
   SSL_free(ssl_local);
@@ -242,7 +203,9 @@ int server(int fd) {
   while (1) {
     request_len = read(fd, (void *)request, sizeof(request));
     if (request_len < 1) {
+#ifdef DEBUG
       perror("Server read error, or connection closed");
+#endif
       break;
     }
     *(request + request_len) = '\0';
