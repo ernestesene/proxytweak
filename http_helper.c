@@ -38,8 +38,8 @@ int parse_request(char *request, size_t request_len, struct request *req) {
       req->payload = needle;
       /* check if payload_length == content_length */
       req->payload_length = request + request_len - needle;
-      if (req->payload_length != req->content_length) {
-        fprintf(stderr, "payload_length: %ld != content_length: %ld\n",
+      if (req->payload_length > req->content_length) {
+        fprintf(stderr, "payload_length: %zu > content_length: %zu\n",
                 req->payload_length, req->content_length);
         return -1;
       }

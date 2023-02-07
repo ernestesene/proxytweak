@@ -94,22 +94,6 @@ static void proxy_ssl(int fd, const char *host) {
       SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
       continue;
     }
-    // #warning "reusing variable request[] for storing payload"
-    if (req.content_length > 0) {
-      /* payload not part of header */
-      if (req.payload_length != req.content_length) {
-        req.payload_length =
-            SSL_read(ssl_local, (void *)request, req.content_length);
-        if (req.payload_length < req.content_length) {
-          /* TODO ## payload may be partial, re-read instead */
-          fprintf(stderr, "req.payload_length < req.content_length\n");
-          goto ssl_cleanup;
-        }
-        *(request + req.payload_length) =
-            '\0'; /* only for debug and printing */
-        req.payload = request;
-      } /* payload not part of header */
-    }
 
 #ifdef DEBUG
     fprintf(stderr, "req_hdr_remote ==>\n%s\nreq_hdr_remote_len: %ld\n",
@@ -165,8 +149,21 @@ static void proxy_ssl(int fd, const char *host) {
     // send request to remote proxy server(web worker)
     SSL_write(ssl_remote, req_hdr_remote, req_hdr_remote_len);
     /* TODO check payload and payload_len againt trailing null */
-    if (req.payload_length > 0)
-      SSL_write(ssl_remote, req.payload, req.payload_length);
+    if (req.content_length > 0) {
+      size_t content_sent = 0;
+      if (req.payload) {
+        err = SSL_write(ssl_remote, req.payload, req.payload_length);
+        if (err <= 0) goto ssl_cleanup;
+        content_sent += err;
+      }
+      while (content_sent < req.content_length) {
+        req.payload_length =
+            SSL_read(ssl_local, (void *)request, REQUEST_MAX - 1);
+        err = SSL_write(ssl_remote, request, req.payload_length);
+        if (err <= 0) goto ssl_cleanup;
+        content_sent += err;
+      }
+    }
 
     // read response from remote and send to client(GOTO clean_up on error)
     do {
