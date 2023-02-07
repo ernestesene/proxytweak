@@ -20,9 +20,9 @@ static SSL_CTX *ctx_server = NULL, *ctx_client = NULL;
 static void proxy_ssl(int fd, const char *host) {
   /* TODO connect to remote proxy server (web worker) */
   int err = -1;
-  char request[RESQUEST_MAX] = {0};
+  char request[REQUEST_MAX] = {0};
   size_t request_len = -1;
-  char req_hdr_remote[RESQUEST_MAX] = {0};
+  char req_hdr_remote[REQUEST_MAX] = {0};
   size_t req_hdr_remote_len = -1;
 
   int fd_remote = -1;
@@ -70,7 +70,7 @@ static void proxy_ssl(int fd, const char *host) {
 #ifdef DEBUG
 
     fprintf(stderr, "While_debug\n");
-    printf("RESQUEST_MAX is: %ldbytes\n", sizeof(request));
+    printf("REQUEST_MAX is: %ldbytes\n", sizeof(request));
     printf("Request length is: %ldbytes\n", (long)request_len);
     printf("Request is \n\n%s\n", request);
 #endif
@@ -194,7 +194,7 @@ ssl_cleanup:
 
 int server(int fd) {
   int err = -1;
-  char request[RESQUEST_MAX] = {0};
+  char request[REQUEST_MAX] = {0};
   ssize_t request_len = 0;
 
   char host[HOST_MAX] = {0};
@@ -211,7 +211,7 @@ int server(int fd) {
     *(request + request_len) = '\0';
 
 #ifdef DEBEG
-    printf("RESQUEST_MAX is: %ldbytes\n", sizeof(request));
+    printf("REQUEST_MAX is: %ldbytes\n", sizeof(request));
     printf("Request length is: %ldbytes\n", (long)request_len);
     printf("Request is \n\n%s\n", request);
 #endif

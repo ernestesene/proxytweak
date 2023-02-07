@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 
-#define RESQUEST_MAX 16384 /* 16KB */
+#define REQUEST_MAX 16384  /* 16KB */
 #define RESPONSE_MAX 16384 /* 16KB */
 
 #define HOST_MAX 64
