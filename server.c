@@ -163,6 +163,20 @@ static void proxy_ssl(int fd, const char *host) {
         if (err <= 0) goto ssl_cleanup;
         content_sent += err;
       }
+    } else if (req.chunked) {
+      char chnk_not_eof = true;
+      if (req.payload) {
+        err = SSL_write(ssl_remote, req.payload, req.payload_length);
+        if (err <= 0) goto ssl_cleanup;
+        chnk_not_eof = chunked_not_eof(req.payload, req.payload_length);
+      }
+      while (chnk_not_eof) {
+        req.payload_length =
+            SSL_read(ssl_local, (void *)request, REQUEST_MAX - 1);
+        err = SSL_write(ssl_remote, request, req.payload_length);
+        if (err <= 0) goto ssl_cleanup;
+        chnk_not_eof = chunked_not_eof(request, req.payload_length);
+      }
     }
 
     // read response from remote and send to client(GOTO clean_up on error)

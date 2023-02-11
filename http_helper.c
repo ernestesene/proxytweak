@@ -16,29 +16,32 @@ int parse_connect_request(char *req, char *method, char *host) {
 }
 
 /* TODO check for errors */
-int parse_request(char *request, size_t request_len, struct request *req) {
+int parse_request(const char *const request, size_t request_len,
+                  struct request *req) {
   char *needle;
   int err = -1;
 
-  /* content length and payload first */
+  /* Content-Length: */
   const char content_length[] = "Content-Length: ";
   needle = strstr(request, content_length);
-  if (needle == NULL)
-    req->content_length = 0;
-  else {
-    /* needle += strlen(content_length); */
-    needle += sizeof(content_length) - 1;
+  if (needle != NULL) {
+    needle += sizeof(content_length) - 1; /* strlen(content_length); */
     req->content_length = atoi(needle);
+  }
+  /* Transfer-Encoding: chunked */
+  const char transfer_encoding[] = "Transfer-Encoding: chunked";
+  needle = strstr(request, transfer_encoding);
+  if (needle != NULL) req->chunked = true;
 
-    /* only if payload is part of header */
+  /* only if payload is part of header */
+  if (req->content_length || req->chunked) {
     needle = strstr(request, "\r\n\r\n") + 4;
     if (*needle == '\0')
       req->payload = NULL;
     else {
       req->payload = needle;
-      /* check if payload_length == content_length */
       req->payload_length = request + request_len - needle;
-      if (req->payload_length > req->content_length) {
+      if (req->content_length && req->payload_length > req->content_length) {
         fprintf(stderr, "payload_length: %zu > content_length: %zu\n",
                 req->payload_length, req->content_length);
         return -1;
@@ -46,7 +49,7 @@ int parse_request(char *request, size_t request_len, struct request *req) {
     }
   }
 
-  req->method = strtok_r(request, " ", &needle);
+  req->method = strtok_r((char *)request, " ", &needle);
   req->path = strtok_r(NULL, " ", &needle);
   strtok_r(NULL, "\n", &needle); /* HTTP/1.1\r\n */
 
