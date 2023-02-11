@@ -9,6 +9,9 @@
 #include "tls_helper.h"
 #include "tweak.h"
 
+/* use request buffer as RESPONSE_BUF to save memory */
+#define RESPONSE_BUF request
+
 static const char response_err[] = "HTTP/1.1 400 Bad request\r\n\r\n";
 static const char response_ok[] = "HTTP/1.1 200 OK\r\n\r\n";
 
@@ -27,9 +30,6 @@ static void proxy_ssl(int fd, const char *host) {
 
   int fd_remote = -1;
   SSL *ssl_remote = NULL;
-
-  char response_buf[RESPONSE_MAX] = {0};
-  size_t response_len = -1;
 
   write(fd, response_ok, sizeof(response_ok) - 1);
   if (ctx_server == NULL) ctx_server = ssl_create_context(server_method);
@@ -180,10 +180,11 @@ static void proxy_ssl(int fd, const char *host) {
     }
 
     // read response from remote and send to client(GOTO clean_up on error)
+    ssize_t response_len = -1;
     do {
-      response_len = SSL_read(ssl_remote, response_buf, sizeof(response_buf));
+      response_len = SSL_read(ssl_remote, RESPONSE_BUF, sizeof(RESPONSE_BUF));
       if (response_len > 0) {
-        err = SSL_write(ssl_local, response_buf, response_len);
+        err = SSL_write(ssl_local, RESPONSE_BUF, response_len);
         if (err != (int)response_len) goto ssl_cleanup;
       }
     } while (response_len > 0);
