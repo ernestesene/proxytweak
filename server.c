@@ -24,7 +24,7 @@ static void proxy_ssl(int fd, const char *host) {
   /* TODO connect to remote proxy server (web worker) */
   int err = -1;
   char request[REQUEST_MAX] = {0};
-  size_t request_len = -1;
+  ssize_t request_len = -1;
   char req_hdr_remote[REQUEST_MAX] = {0};
   size_t req_hdr_remote_len = -1;
 
@@ -70,8 +70,8 @@ static void proxy_ssl(int fd, const char *host) {
 #ifdef DEBUG
 
     fprintf(stderr, "While_debug\n");
-    printf("REQUEST_MAX is: %ldbytes\n", sizeof(request));
-    printf("Request length is: %ldbytes\n", (long)request_len);
+    printf("REQUEST_MAX is: %zubytes\n", sizeof(request));
+    printf("Request length is: %zdbytes\n", request_len);
     printf("Request is \n\n%s\n", request);
 #endif
     struct request req = {0};
@@ -96,10 +96,10 @@ static void proxy_ssl(int fd, const char *host) {
     }
 
 #ifdef DEBUG
-    fprintf(stderr, "req_hdr_remote ==>\n%s\nreq_hdr_remote_len: %ld\n",
+    fprintf(stderr, "req_hdr_remote ==>\n%s\nreq_hdr_remote_len: %zu\n",
             req_hdr_remote, req_hdr_remote_len);
     fprintf(stderr,
-            "req_hdr_remote_payload:\n%s\nreq_hdr_remote_payload_length: %ld\n",
+            "req_hdr_remote_payload:\n%s\nreq_hdr_remote_payload_length: %zu\n",
             req.payload, req.payload_length);
 #endif
 
@@ -117,7 +117,7 @@ static void proxy_ssl(int fd, const char *host) {
     if (ssl_remote == NULL) {
       ssl_remote = SSL_new(ctx_client);
       /* TODO handle err */
-      err = SSL_set_tlsext_host_name(ssl_remote, HOST_REMOTE);
+      SSL_set_tlsext_host_name(ssl_remote, HOST_REMOTE);
       SSL_set_fd(ssl_remote, fd_remote);
       err = SSL_connect(ssl_remote);
       if (err != 1) {
@@ -223,8 +223,8 @@ int server(int fd) {
     *(request + request_len) = '\0';
 
 #ifdef DEBEG
-    printf("REQUEST_MAX is: %ldbytes\n", sizeof(request));
-    printf("Request length is: %ldbytes\n", (long)request_len);
+    printf("REQUEST_MAX is: %zubytes\n", sizeof(request));
+    printf("Request length is: %zdbytes\n", request_len);
     printf("Request is \n\n%s\n", request);
 #endif
 
