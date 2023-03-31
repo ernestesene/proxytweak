@@ -33,7 +33,7 @@ struct request {
 };
 
 /* TODO change bad_request to match HTTP RESPONSE */
-extern int parse_connect_request(char *req, char *method, char *host);
+extern int parse_connect_request(char *req, char *host, int *port);
 extern int parse_request(const char *const request, size_t request_len,
                          struct request *req);
 

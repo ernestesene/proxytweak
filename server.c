@@ -210,7 +210,7 @@ int server(int fd) {
   ssize_t request_len = 0;
 
   char host[HOST_MAX] = {0};
-  char method[16] = {0};
+  int port = 0;
 
   while (1) {
     request_len = read(fd, (void *)request, sizeof(request));
@@ -230,7 +230,7 @@ int server(int fd) {
 
     err = strncmp(request, "CONNECT", 7);
     if (err == 0) {
-      err = parse_connect_request(request, method, host);
+      err = parse_connect_request(request, host, &port);
       if (err) {
         write(fd, response_err, sizeof(response_err) - 1);
         continue;
@@ -239,7 +239,6 @@ int server(int fd) {
       fprintf(stderr, "Received connect request to host %s\n", host);
 #endif
       proxy_ssl(fd, host);
-      // write(fd, response_ok, sizeof(response_ok) - 1);
     } else {
       //    proxy_nossl(fd, request);
     }

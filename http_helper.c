@@ -5,12 +5,13 @@
 #include <string.h>
 
 /* TODO: possible buffer overflow here */
-int parse_connect_request(char *req, char *method, char *host) {
-  char *_method = NULL, *_host = NULL;
-  _method = strtok(req, " ");
-  _host = strtok(NULL, ": ");
-  if (_method == NULL || _host == NULL) return 1;
-  strcpy(method, _method);
+int parse_connect_request(char *req, char *host, int *port) {
+  char *_host = NULL, *_port = NULL;
+  strtok(req, " ");
+  _host = strtok(NULL, ":");
+  _port = strtok(NULL, " ");
+  *port = atoi(_port);
+  if (_host == NULL || *port == 0) return 1;
   strcpy(host, _host);
   return 0;
 }
