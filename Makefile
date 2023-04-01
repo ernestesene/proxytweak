@@ -14,7 +14,7 @@ all: $(PROGRAM)
 
 $(PROGRAM): $(OBJS)
 	$(CC) -o $@ $(LDFLAGS) $^
-%.o: %.c
+%.o: %.c %.h
 	$(CC) -o $@ $(CFLAGS) $<
 
 tags: *.c
