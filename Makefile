@@ -26,6 +26,3 @@ TAGS:
 .PHONY: clean backup
 clean:
 	-rm $(OBJS) $(PROGRAM) tags TAGS
-
-backup:
-	-cp -au *.c *.h Makefile ~/tmp2/projects/proxytweak
