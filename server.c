@@ -16,22 +16,32 @@ static const char response_err[] = "HTTP/1.1 400 Bad request\r\n\r\n";
 static const char response_ok[] = "HTTP/1.1 200 OK\r\n\r\n";
 
 /* TODO may cause race condition */
-static SSL_CTX *ctx_server = NULL, *ctx_client = NULL;
+#if (PEER_USE_TLS)
+static SSL_CTX *ctx_client = NULL;
+#endif
+static SSL_CTX *ctx_server = NULL;
 
 // static void proxy_nossl(int fd, const char *request){}
 
 static void proxy_ssl(int fd, const char *host) {
-  /* TODO connect to remote proxy server (web worker) */
+  /* Use macro WRITE and READ to read/write to remote peer */
   int err = -1;
   char request[REQUEST_MAX] = {0};
   ssize_t request_len = -1;
   char req_hdr_remote[REQUEST_MAX] = {0};
   size_t req_hdr_remote_len = -1;
-
   int fd_remote = -1;
+#if (PEER_USE_TLS)
   SSL *ssl_remote = NULL;
+#define WRITE SSL_write
+#define READ SSL_read
+#else
 
-  write(fd, response_ok, sizeof(response_ok) - 1);
+#define ssl_remote fd_remote
+#define WRITE write
+#define READ read
+#endif
+
   if (ctx_server == NULL) ctx_server = ssl_create_context(server_method);
   if (ctx_server == NULL) {
     write(fd, response_err, sizeof(response_err) - 1);
@@ -44,7 +54,7 @@ static void proxy_ssl(int fd, const char *host) {
     close(fd);
     return;
   }
-
+  write(fd, response_ok, sizeof(response_ok) - 1);
   /* local server SSL  and handshake */
   SSL *ssl_local = SSL_new(ctx_server);
   SSL_set_fd(ssl_local, fd);
@@ -81,14 +91,22 @@ static void proxy_ssl(int fd, const char *host) {
       SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
       continue;
     }
+#if (PEER_METHODS & PEER_METHOD_POST)
+#define REQ_METHOD req.method
+#define REQ_MYMETHOD
+#else
+#define REQ_METHOD "GET"
+#define REQ_MYMETHOD , req.method
+#endif
     if (req.header2 != NULL)
-      req_hdr_remote_len = snprintf(
-          req_hdr_remote, sizeof(req_hdr_remote), req_hdr_fmt1, req.method,
-          req.host, req.path, HOST_REMOTE, req.header1, req.header2);
+      req_hdr_remote_len =
+          snprintf(req_hdr_remote, sizeof(req_hdr_remote), req_hdr_fmt_worker1,
+                   REQ_METHOD, req.host, req.path, req.header1,
+                   req.header2 REQ_MYMETHOD);
     else
       req_hdr_remote_len =
-          snprintf(req_hdr_remote, sizeof(req_hdr_remote), req_hdr_fmt2,
-                   req.method, req.host, req.path, HOST_REMOTE, req.header1);
+          snprintf(req_hdr_remote, sizeof(req_hdr_remote), req_hdr_fmt_worker2,
+                   REQ_METHOD, req.host, req.path, req.header1 REQ_MYMETHOD);
 
     if (req_hdr_remote_len < 1) {
       SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
@@ -110,14 +128,15 @@ static void proxy_ssl(int fd, const char *host) {
       SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
       continue;
     }
+#if (PEER_USE_TLS)
     if (ctx_client == NULL) {
       ctx_client = ssl_create_context(client_method);
       ssl_configure_context(ctx_client, client_method);
     }
-    if (ssl_remote == NULL) {
-      ssl_remote = SSL_new(ctx_client);
+    ssl_remote = SSL_new(ctx_client);
+    if (ssl_remote != NULL) {
       /* TODO handle err */
-      SSL_set_tlsext_host_name(ssl_remote, HOST_REMOTE);
+      SSL_set_tlsext_host_name(ssl_remote, PEER_CUSTOM_HOST);
       SSL_set_fd(ssl_remote, fd_remote);
       err = SSL_connect(ssl_remote);
       if (err != 1) {
@@ -145,35 +164,36 @@ static void proxy_ssl(int fd, const char *host) {
       }
       /* TODO remote peer host name verification */
     }
+#endif
 
     // send request to remote proxy server(web worker)
-    SSL_write(ssl_remote, req_hdr_remote, req_hdr_remote_len);
+    WRITE(ssl_remote, req_hdr_remote, req_hdr_remote_len);
     /* TODO check payload and payload_len againt trailing null */
     if (req.content_length > 0) {
       size_t content_sent = 0;
       if (req.payload) {
-        err = SSL_write(ssl_remote, req.payload, req.payload_length);
+        err = WRITE(ssl_remote, req.payload, req.payload_length);
         if (err <= 0) goto ssl_cleanup;
         content_sent += err;
       }
       while (content_sent < req.content_length) {
         req.payload_length =
             SSL_read(ssl_local, (void *)request, REQUEST_MAX - 1);
-        err = SSL_write(ssl_remote, request, req.payload_length);
+        err = WRITE(ssl_remote, request, req.payload_length);
         if (err <= 0) goto ssl_cleanup;
         content_sent += err;
       }
     } else if (req.chunked) {
       char chnk_not_eof = true;
       if (req.payload) {
-        err = SSL_write(ssl_remote, req.payload, req.payload_length);
+        err = WRITE(ssl_remote, req.payload, req.payload_length);
         if (err <= 0) goto ssl_cleanup;
         chnk_not_eof = chunked_not_eof(req.payload, req.payload_length);
       }
       while (chnk_not_eof) {
         req.payload_length =
             SSL_read(ssl_local, (void *)request, REQUEST_MAX - 1);
-        err = SSL_write(ssl_remote, request, req.payload_length);
+        err = WRITE(ssl_remote, request, req.payload_length);
         if (err <= 0) goto ssl_cleanup;
         chnk_not_eof = chunked_not_eof(request, req.payload_length);
       }
@@ -182,7 +202,7 @@ static void proxy_ssl(int fd, const char *host) {
     // read response from remote and send to client(GOTO clean_up on error)
     ssize_t response_len = -1;
     do {
-      response_len = SSL_read(ssl_remote, RESPONSE_BUF, sizeof(RESPONSE_BUF));
+      response_len = READ(ssl_remote, RESPONSE_BUF, sizeof(RESPONSE_BUF));
       if (response_len > 0) {
         err = SSL_write(ssl_local, RESPONSE_BUF, response_len);
         if (err != (int)response_len) goto ssl_cleanup;
@@ -194,10 +214,12 @@ ssl_cleanup:
   SSL_shutdown(ssl_local);
   SSL_free(ssl_local);
   close(fd);
+#if (PEER_USE_TLS)
   if (ssl_remote) {
     SSL_shutdown(ssl_remote);
     SSL_free(ssl_remote);
   }
+#endif
   if (fd_remote > -1) {
     close(fd_remote);
   }
