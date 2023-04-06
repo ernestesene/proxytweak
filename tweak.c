@@ -23,7 +23,9 @@ const char *const req_hdr_fmt_worker2 =
     "\r\n%s\r\n" MY_METHOD "Connection: close\r\n\r\n";
 
 /* for custom connect */
+#ifdef PEER_CONNECT_CUSTOM_HOST
 const char *const req_hdr_fmt_connect =
     "CONNECT %s:%d HTTP/1.1\r\nHost: " PEER_CONNECT_CUSTOM_HOST
     "\r\nUser-Agent: native_app/0.00.0\r\n"
     "Proxy-Connection: Keep-Alive\r\n\r\n";
+#endif

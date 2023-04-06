@@ -48,4 +48,6 @@ extern const char *const req_hdr_fmt_connect;
 #warning port 443 should use TLS
 #endif
 
+#define CONNECT_HEADER "User-Agent: connect"
+
 #endif /* ifndef TWEAK_H */

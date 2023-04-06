@@ -1,5 +1,6 @@
 #include "server.h"
 
+#include <poll.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -226,8 +227,75 @@ ssl_cleanup:
   return;
 }
 
+#ifdef PEER_CONNECT_CUSTOM_HOST
+/* use case for ssh using openbsd-netcat:
+ * ssh ssh.host.net -o ProxyUseFdpass=yes\
+ * -o ProxyCommand="nc -FXconnect -x127.0.0.1:8888 %h %p"
+ *
+ * use case curl:
+ * https_proxy="http://127.0.0.1:8888" curl https://host.net -A connect
+ */
+static void proxy_connect(int fd, const char *host, int port) {
+#ifdef DEBUG
+  fprintf(stderr, "proxy_connect mode\n");
+#endif
+  int fd_remote = -1;
+  fd_remote = connect_remote_server();
+  if (fd_remote < 0) {
+    // TODO: give better error code
+    write(fd, response_err, sizeof(response_err) - 1);
+    close(fd);
+    return;
+  }
+
+  // send custom CONNECT request on remote peer
+  char buffer[REQUEST_MAX] = {0};
+  int len = 0;
+  len = snprintf(buffer, sizeof(buffer), req_hdr_fmt_connect, host, port);
+#ifdef DEBUG
+  fprintf(stderr, "Custom connect resquest is \n%s\n", buffer);
+#endif
+  if (1 > write(fd_remote, buffer, len)) {
+    perror("send request");
+    goto proxy_end;
+  }
+
+  // bridge local fd with remote
+#define POLLFDS 2
+  struct pollfd pfd[POLLFDS] = {0};
+  pfd[0].fd = fd_remote;
+  pfd[0].events = POLLIN;
+  pfd[1].fd = fd;
+  pfd[1].events = POLLIN;
+
+  do {
+    if (poll(pfd, POLLFDS, -1) < 1) {
+      perror("poll failed");
+      break;
+    }
+    bool i = 0;
+    do {
+      if (pfd[i].revents & POLLIN) {
+        len = read(pfd[i].fd, buffer, sizeof(buffer));
+        if (len < 1) {
+          perror("can't read polled fd");
+          goto proxy_end;
+        }
+        if (len != write(pfd[!i].fd, buffer, len)) {
+          perror("can't write fd");
+          goto proxy_end;
+        }
+      }
+      i = !i;
+    } while (i);
+  } while (1);
+proxy_end:
+  close(fd_remote);
+  close(fd);
+}
+#endif
+
 int server(int fd) {
-  int err = -1;
   char request[REQUEST_MAX] = {0};
   ssize_t request_len = 0;
 
@@ -244,12 +312,15 @@ int server(int fd) {
     }
     *(request + request_len) = '\0';
 
-#ifdef DEBEG
-    printf("REQUEST_MAX is: %zubytes\n", sizeof(request));
-    printf("Request length is: %zdbytes\n", request_len);
-    printf("Request is \n\n%s\n", request);
+#ifdef DEBUG
+    printf("Request is \n%s\n", request);
 #endif
-
+#ifdef PEER_CONNECT_CUSTOM_HOST
+    int use_connect = 0;
+    if (strstr(request, CONNECT_HEADER) || !strstr(request, "Host: "))
+      use_connect = 1;
+#endif
+    int err = -1;
     err = strncmp(request, "CONNECT", 7);
     if (err == 0) {
       err = parse_connect_request(request, host, &port);
@@ -257,10 +328,14 @@ int server(int fd) {
         write(fd, response_err, sizeof(response_err) - 1);
         continue;
       }
-#ifdef DEBUG
-      fprintf(stderr, "Received connect request to host %s\n", host);
-#endif
+#ifdef PEER_CONNECT_CUSTOM_HOST
+      if (use_connect)
+        proxy_connect(fd, host, port);
+      else
+        proxy_ssl(fd, host);
+#else
       proxy_ssl(fd, host);
+#endif
     } else {
       //    proxy_nossl(fd, request);
     }
