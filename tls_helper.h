@@ -4,8 +4,22 @@
 #include <openssl/err.h>
 #include <openssl/ssl.h>
 
-enum ssl_method { client_method, server_method };
-extern SSL_CTX *ssl_create_context(enum ssl_method method);
-extern int ssl_configure_context(SSL_CTX *ctx, enum ssl_method method);
+#include "tweak.h"
+
+/* return 0 on success */
+extern int init_tls_helper();
+extern void tls_shutdown(SSL* ssl);
+
+/**
+ * tls_accept() - set up server TLS and do handshake
+ * @fd: int socket file descriptor to use
+ * @returns: NULL on failure
+ *
+ * caller must call tls_shutdown() after use
+ */
+extern SSL* tls_accept(int fd);
+#if (PEER_USE_TLS)
+extern SSL* tls_connect(int fd_remote);
+#endif
 
 #endif /* ifndef TLS_HELPER_H */

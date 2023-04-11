@@ -10,28 +10,26 @@
 #include "tls_helper.h"
 #include "tweak.h"
 
-/* use request buffer as RESPONSE_BUF to save memory */
-#define RESPONSE_BUF request
+#define FD_REMOTE 0
+#define FD_LOCAL 1
+#define POLLFDS 2
 
 static const char response_err[] = "HTTP/1.1 400 Bad request\r\n\r\n";
 static const char response_ok[] = "HTTP/1.1 200 OK\r\n\r\n";
 
-/* TODO may cause race condition */
-#if (PEER_USE_TLS)
-static SSL_CTX *ctx_client = NULL;
-#endif
-static SSL_CTX *ctx_server = NULL;
-
-// static void proxy_nossl(int fd, const char *request){}
-
-static void proxy_ssl(int fd, const char *host) {
-  /* Use macro WRITE and READ to read/write to remote peer */
+static void proxy_ssl(int fd) {
+  /* Use macro WRITE and READ to read/write to remote peer
+   * TODO: better error message for WRITE and READ */
   int err = -1;
+  char buffer[REQUEST_MAX] = {0};
+  int buff_len = -1;
   char request[REQUEST_MAX] = {0};
-  ssize_t request_len = -1;
-  char req_hdr_remote[REQUEST_MAX] = {0};
-  size_t req_hdr_remote_len = -1;
+  int req_len = -1;
+  const char *payload = NULL;
+  size_t payload_len = 0;
   int fd_remote = -1;
+  SSL *ssl_local = NULL;
+
 #if (PEER_USE_TLS)
   SSL *ssl_remote = NULL;
 #define WRITE SSL_write
@@ -42,184 +40,111 @@ static void proxy_ssl(int fd, const char *host) {
 #define WRITE write
 #define READ read
 #endif
-
-  if (ctx_server == NULL) ctx_server = ssl_create_context(server_method);
-  if (ctx_server == NULL) {
-    write(fd, response_err, sizeof(response_err) - 1);
-    close(fd);
-    return;
-  }
-  err = ssl_configure_context(ctx_server, server_method);
-  if (err) {
-    write(fd, response_err, sizeof(response_err) - 1);
-    close(fd);
-    return;
-  }
-  write(fd, response_ok, sizeof(response_ok) - 1);
-  /* local server SSL  and handshake */
-  SSL *ssl_local = SSL_new(ctx_server);
-  SSL_set_fd(ssl_local, fd);
-  err = SSL_accept(ssl_local);
-  if (err <= 0) {
-    err = SSL_get_error(ssl_local, err);
-    if (err == SSL_ERROR_SYSCALL)
-      perror("SSL_accept");
-    else
-      ERR_print_errors_fp(stderr);
-    goto ssl_cleanup;
-  }
-
-  while (1) {
-    request_len = SSL_read(ssl_local, (void *)request, sizeof(request));
-
-    if (request_len <= 0) {
-      ERR_print_errors_fp(stderr);
-      goto ssl_cleanup;
-    }
-    *(request + request_len) = '\0';
-
-#ifdef DEBUG
-
-    fprintf(stderr, "While_debug\n");
-    printf("REQUEST_MAX is: %zubytes\n", sizeof(request));
-    printf("Request length is: %zdbytes\n", request_len);
-    printf("Request is \n\n%s\n", request);
-#endif
-    struct request req = {0};
-    req.host = host;
-    err = parse_request(request, request_len, &req);
-    if (err) {
-      SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
-      continue;
-    }
-#if (PEER_METHODS & PEER_METHOD_POST)
-#define REQ_METHOD req.method
-#define REQ_MYMETHOD
-#else
-#define REQ_METHOD "GET"
-#define REQ_MYMETHOD , req.method
-#endif
-    if (req.header2 != NULL)
-      req_hdr_remote_len =
-          snprintf(req_hdr_remote, sizeof(req_hdr_remote), req_hdr_fmt_worker1,
-                   REQ_METHOD, req.host, req.path, req.header1,
-                   req.header2 REQ_MYMETHOD);
-    else
-      req_hdr_remote_len =
-          snprintf(req_hdr_remote, sizeof(req_hdr_remote), req_hdr_fmt_worker2,
-                   REQ_METHOD, req.host, req.path, req.header1 REQ_MYMETHOD);
-
-    if (req_hdr_remote_len < 1) {
-      SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
-      continue;
-    }
-
-#ifdef DEBUG
-    fprintf(stderr, "req_hdr_remote ==>\n%s\nreq_hdr_remote_len: %zu\n",
-            req_hdr_remote, req_hdr_remote_len);
-    fprintf(stderr,
-            "req_hdr_remote_payload:\n%s\nreq_hdr_remote_payload_length: %zu\n",
-            req.payload, req.payload_length);
-#endif
-
-    // Connect to remote proxy
-    if (fd_remote < 0) fd_remote = connect_remote_server();
-    if (fd_remote < 0) {
-      /* TODO reply "can't connect to upstream proxy" */
-      SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
-      continue;
-    }
+  // Connect to remote proxy
+  fd_remote = connect_remote_server();
+  if (fd_remote < 0) goto end;
 #if (PEER_USE_TLS)
-    if (ctx_client == NULL) {
-      ctx_client = ssl_create_context(client_method);
-      ssl_configure_context(ctx_client, client_method);
-    }
-    ssl_remote = SSL_new(ctx_client);
-    if (ssl_remote != NULL) {
-      /* TODO handle err */
-      SSL_set_tlsext_host_name(ssl_remote, PEER_CUSTOM_HOST);
-      SSL_set_fd(ssl_remote, fd_remote);
-      err = SSL_connect(ssl_remote);
-      if (err != 1) {
-        ERR_print_errors_fp(stderr);
-        /* TODO */
-        SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
-        goto ssl_cleanup;
-      }
-
-      X509 *cert = SSL_get_peer_certificate(ssl_remote);
-      if (cert)
-        X509_free(cert);
-      else {
-        fprintf(stderr, "SSL: no remote peer's certificate\n");
-        ERR_print_errors_fp(stderr);
-        SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
-        goto ssl_cleanup;
-      }
-      err = SSL_get_verify_result(ssl_remote);
-      if (X509_V_OK != err) {
-        /* TODO better err message via ERR_reason_error_string(err); */
-        fprintf(stderr, "SSL: verify remote peer's certificate error\n");
-        SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
-        goto ssl_cleanup;
-      }
-      /* TODO remote peer host name verification */
-    }
+  // remote SSL connect
+  ssl_remote = tls_connect(fd_remote);
+  if (!ssl_remote) goto end;
 #endif
 
-    // send request to remote proxy server(web worker)
-    WRITE(ssl_remote, req_hdr_remote, req_hdr_remote_len);
-    /* TODO check payload and payload_len againt trailing null */
-    if (req.content_length > 0) {
-      size_t content_sent = 0;
-      if (req.payload) {
-        err = WRITE(ssl_remote, req.payload, req.payload_length);
-        if (err <= 0) goto ssl_cleanup;
-        content_sent += err;
-      }
-      while (content_sent < req.content_length) {
-        req.payload_length =
-            SSL_read(ssl_local, (void *)request, REQUEST_MAX - 1);
-        err = WRITE(ssl_remote, request, req.payload_length);
-        if (err <= 0) goto ssl_cleanup;
-        content_sent += err;
-      }
-    } else if (req.chunked) {
-      char chnk_not_eof = true;
-      if (req.payload) {
-        err = WRITE(ssl_remote, req.payload, req.payload_length);
-        if (err <= 0) goto ssl_cleanup;
-        chnk_not_eof = chunked_not_eof(req.payload, req.payload_length);
-      }
-      while (chnk_not_eof) {
-        req.payload_length =
-            SSL_read(ssl_local, (void *)request, REQUEST_MAX - 1);
-        err = WRITE(ssl_remote, request, req.payload_length);
-        if (err <= 0) goto ssl_cleanup;
-        chnk_not_eof = chunked_not_eof(request, req.payload_length);
+  write(fd, response_ok, sizeof(response_ok) - 1);
+  ssl_local = tls_accept(fd);
+  if (!ssl_local) goto end;
+
+  // proxy_https main loop
+  struct pollfd pfd[POLLFDS] = {0};
+  pfd[FD_REMOTE].fd = fd_remote;
+  pfd[FD_REMOTE].events = POLLIN;
+  pfd[FD_LOCAL].fd = fd;
+  pfd[FD_LOCAL].events = POLLIN;
+
+  bool FD_LOCAL_not_last_read = true;
+  do {
+    if (poll(pfd, POLLFDS, -1) < 1) {
+      perror("poll failed");
+      break;
+    }
+    if (pfd[FD_LOCAL].revents & POLLIN) {
+      if (FD_LOCAL_not_last_read) {
+        // read request from local fd
+        buff_len = SSL_read(ssl_local, buffer, sizeof(buffer) - 1);
+        if (buff_len < 1) {
+          ERR_print_errors_fp(stderr);
+          goto end;
+        }
+        *(buffer + buff_len) = '\0';
+#ifdef DEBUG
+        printf("REQUEST_MAX is: %zubytes\n", sizeof(buffer));
+        printf("Request length is: %dbytes\n", buff_len);
+        printf("Request is \n\n%s\n", buffer);
+#endif
+        // modify request
+        req_len = transform_req(buffer, buff_len, request, sizeof(request),
+                                &payload, &payload_len);
+        if (req_len < 1) {
+          err = SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
+          if (err < 1) goto end;
+        } else {
+#ifdef DEBUG
+          fprintf(stderr, "Remote request ==>\n%s\nreq_len: %d\n", request,
+                  req_len);
+          fprintf(stderr, "payload:\n%s\npayload_length: %zu\n", payload,
+                  payload_len);
+#endif
+          // send to remote
+          err = WRITE(ssl_remote, request, req_len);
+          if (err < 1) {
+            perror("WRITE error");
+            goto end;
+          } else if (err < (int)req_len) {
+            perror("partial write");
+            goto end;  // TODO may want to rewrite remaining instead
+          }
+
+          if (payload_len > 0 && payload) {
+            err = WRITE(ssl_remote, payload, payload_len);
+            if (err < (int)payload_len) {
+              perror("WRITE error");
+              goto end;
+            }
+          }
+          FD_LOCAL_not_last_read = false;
+        }
+      } else {
+        // continue reading local fd
+        buff_len = SSL_read(ssl_local, buffer, sizeof(buffer));
+        if (buff_len < 1) {
+          ERR_print_errors_fp(stderr);
+          goto end;
+        }
+        // send to remote
+        WRITE(ssl_remote, buffer, buff_len);
+        if (err < 1) {
+          perror("WRITE error");
+          goto end;
+        }
       }
     }
-
-    // read response from remote and send to client(GOTO clean_up on error)
-    ssize_t response_len = -1;
-    do {
-      response_len = READ(ssl_remote, RESPONSE_BUF, sizeof(RESPONSE_BUF));
-      if (response_len > 0) {
-        err = SSL_write(ssl_local, RESPONSE_BUF, response_len);
-        if (err != (int)response_len) goto ssl_cleanup;
+    if (pfd[FD_REMOTE].revents & POLLIN) {
+      FD_LOCAL_not_last_read = true;
+      // read remote via READ
+      buff_len = READ(ssl_remote, buffer, sizeof(buffer));
+      if (buff_len < 0) {
+        perror("read:remote");
+        goto end;
       }
-    } while (response_len > 0);
-    break;
-  }
-ssl_cleanup:
-  SSL_shutdown(ssl_local);
-  SSL_free(ssl_local);
+      // write local via SSL_write
+      err = SSL_write(ssl_local, buffer, buff_len);
+      if (err != (int)buff_len) goto end;
+    }
+  } while (1);
+end:
+  if (ssl_local) tls_shutdown(ssl_local);
   close(fd);
 #if (PEER_USE_TLS)
-  if (ssl_remote) {
-    SSL_shutdown(ssl_remote);
-    SSL_free(ssl_remote);
-  }
+  if (ssl_remote) tls_shutdown(ssl_remote);
 #endif
   if (fd_remote > -1) {
     close(fd_remote);
@@ -261,7 +186,6 @@ static void proxy_connect(int fd, const char *host, int port) {
   }
 
   // bridge local fd with remote
-#define POLLFDS 2
   struct pollfd pfd[POLLFDS] = {0};
   pfd[0].fd = fd_remote;
   pfd[0].events = POLLIN;
@@ -297,12 +221,12 @@ proxy_end:
 
 int server(int fd) {
   char request[REQUEST_MAX] = {0};
-  ssize_t request_len = 0;
 
   char host[HOST_MAX] = {0};
   int port = 0;
 
   while (1) {
+    ssize_t request_len;
     request_len = read(fd, (void *)request, sizeof(request));
     if (request_len < 1) {
 #ifdef DEBUG
@@ -332,9 +256,9 @@ int server(int fd) {
       if (use_connect)
         proxy_connect(fd, host, port);
       else
-        proxy_ssl(fd, host);
+        proxy_ssl(fd);
 #else
-      proxy_ssl(fd, host);
+      proxy_ssl(fd);
 #endif
     } else {
       //    proxy_nossl(fd, request);

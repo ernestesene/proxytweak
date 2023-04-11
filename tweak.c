@@ -16,11 +16,11 @@
 /* includes header2 */
 const char *const req_hdr_fmt_worker1 =
     "%s " PRE_PATH "/proxs/%s%s HTTP/1.1\r\nHost: " PEER_CUSTOM_HOST
-    "\r\n%s\r\n%s\r\n" MY_METHOD "Connection: close\r\n\r\n";
+    "\r\n%s\r\n%s\r\n" MY_METHOD "\r\n";
 /* no header2 */
 const char *const req_hdr_fmt_worker2 =
     "%s " PRE_PATH "/proxs/%s%s HTTP/1.1\r\nHost: " PEER_CUSTOM_HOST
-    "\r\n%s\r\n" MY_METHOD "Connection: close\r\n\r\n";
+    "\r\n%s\r\n" MY_METHOD "\r\n";
 
 /* for custom connect */
 #ifdef PEER_CONNECT_CUSTOM_HOST

@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "server.h"
+#include "tls_helper.h"
 
 #define PORT 8888
 
@@ -27,11 +28,16 @@ void *thread_function(void *arg) {
   free(newfd);
   return NULL;
 }
+static void initialize() {
+  if (init_tls_helper()) exit(EXIT_FAILURE);
+}
 
 int main(void) {
   int sockfd = -1, *newfd = NULL;
   int yes = 1;
   int err;
+
+  initialize();
 
   signal(SIGPIPE, SIG_IGN);
 
