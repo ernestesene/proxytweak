@@ -131,7 +131,7 @@ static void proxy_ssl(int fd) {
       FD_LOCAL_not_last_read = true;
       // read remote via READ
       buff_len = READ(ssl_remote, buffer, sizeof(buffer));
-      if (buff_len < 0) {
+      if (buff_len < 1) {
         perror("read:remote");
         goto end;
       }
