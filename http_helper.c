@@ -35,12 +35,11 @@ static int parse_request(const char *const request, size_t request_len,
 
   /* only if payload is part of header */
   needle = strstr(request, "\r\n\r\n") + 4;
-  if (*needle == '\0')
-    req->payload = NULL;
-  else {
+  if (needle < request + request_len) {
     req->payload = needle;
     req->payload_length = request + request_len - needle;
-  }
+  } else if (needle > request + request_len)
+    return 1;
 
   req->method = strtok_r((char *)request, " ", &needle);
   req->path = strtok_r(NULL, " ", &needle);
