@@ -77,10 +77,8 @@ ssize_t transform_req(char *const in, const size_t in_len, char *const out,
     return -1;
   }
   if (parse_request(in, in_len, &req)) return -1;
-  if (req.payload_length > 0 && req.payload) {
-    *payload = req.payload;
-    *payload_len = req.payload_length;
-  }
+  *payload = req.payload;
+  *payload_len = req.payload_length;
 #if (PEER_METHODS & PEER_METHOD_POST)
 #define REQ_METHOD req.method
 #define REQ_MYMETHOD
