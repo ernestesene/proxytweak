@@ -239,14 +239,14 @@ int server(int fd) {
 #ifdef DEBUG
     printf("Request is \n%s\n", request);
 #endif
+    int err = -1;
+    err = strncmp(request, "CONNECT", 7);
+    if (err == 0) {
 #ifdef PEER_CONNECT_CUSTOM_HOST
     int use_connect = 0;
     if (strstr(request, CONNECT_HEADER) || !strstr(request, "Host: "))
       use_connect = 1;
 #endif
-    int err = -1;
-    err = strncmp(request, "CONNECT", 7);
-    if (err == 0) {
       err = parse_connect_request(request, host, &port);
       if (err) {
         write(fd, response_err, sizeof(response_err) - 1);
