@@ -1,6 +1,14 @@
 #ifndef TWEAK_H
 #define TWEAK_H 1
 
+/* change parameters with "#tweak" in comment. */
+
+/* program listen address */
+/* use INADDR_LOOPBACK or INADDR_ANY or see "netinet/in.h" */
+#define LISTEN_ADDR INADDR_LOOPBACK /* #tweak */
+/* program listen port */
+#define LISTEN_PORT 8888 /* #tweak */
+
 /* web worker request information */
 #define WORKER_HOST "router.eroken.workers.dev"
 extern const char *const req_hdr_fmt_worker1;
@@ -15,7 +23,6 @@ extern const char *const req_hdr_fmt_connect;
 
 /* peer information
  * peer could be an HTTP proxy or reverse proxy.
- * change parameters with "#tweak" in comment.
  */
 #define PEER_HOST "127.0.0.1"        /* #tweak ip address or host name */
 #define PEER_TYPE_CLOUDFLARE 0       /* #tweak boolean*/

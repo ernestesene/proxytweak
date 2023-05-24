@@ -10,8 +10,7 @@
 
 #include "server.h"
 #include "tls_helper.h"
-
-#define PORT 8888
+#include "tweak.h"
 
 void *thread_function(void *arg) {
   int *newfd = NULL;
@@ -54,8 +53,8 @@ int main(void) {
 
   struct sockaddr_in addr = {0};
   addr.sin_family = AF_INET;
-  addr.sin_port = htons(PORT);
-  addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  addr.sin_port = htons(LISTEN_PORT);
+  addr.sin_addr.s_addr = htonl(LISTEN_ADDR);
   err = bind(sockfd, (struct sockaddr *)&addr, sizeof(addr));
   if (err == -1) {
     perror("Bind error");
