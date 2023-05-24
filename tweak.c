@@ -1,9 +1,10 @@
 #include "tweak.h"
+#include "http_helper.h"
 
 #if PEER_TYPE_CLOUDFLARE
 #define PRE_PATH
 #else
-#define PRE_PATH "http://" WORKER_HOST
+#define PRE_PATH HTTP_PROTO WORKER_HOST
 #endif
 
 /* TODO: better method detection needed */
