@@ -101,3 +101,14 @@ ssize_t transform_req(char *const in, const size_t in_len, char *const out,
   }
   return len;
 }
+
+char *http_bare_url(char *request) {
+  char *buff = strstr(request, HTTP_PROTO);
+  if (buff == NULL) goto err;
+  buff += sizeof(HTTP_PROTO) - 1;
+  buff = strtok(buff, " ");
+  if (buff != NULL) return buff;
+
+err:
+  return NULL;
+}

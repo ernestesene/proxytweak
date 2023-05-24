@@ -16,6 +16,12 @@
 
 static const char response_err[] = "HTTP/1.1 400 Bad request\r\n\r\n";
 static const char response_ok[] = "HTTP/1.1 200 OK\r\n\r\n";
+static const char response_redirect[] =
+    "HTTP/1.1 301 Moved Permanently\r\nConnection: Close\r\nLocation: "
+    "https://%s\r\n\r\n";
+static const char response_redirect_html[] =
+    "<html><head><meta http-equiv=\"refresh\" content=\"0; "
+    "url=https://%s\"></head></html>";
 
 static void proxy_ssl(int fd) {
   /* Use macro WRITE and READ to read/write to remote peer
@@ -261,7 +267,25 @@ int server(int fd) {
       proxy_ssl(fd);
 #endif
     } else {
-      //    proxy_nossl(fd, request);
+      char *bare_url = http_bare_url(request);
+      char buff[REQUEST_MAX];
+      ssize_t len = snprintf(buff, sizeof(buff), response_redirect, bare_url);
+      if (len < 1) {
+        perror("http_bare_url");
+        goto err;
+      }
+#ifdef DEBUG
+      fprintf(stderr, "http redirect ===> \n%s\n", buff);
+#endif
+      /* redirect to https */
+      write(fd, buff, len);
+      len = snprintf(buff, sizeof(buff), response_redirect_html, bare_url);
+      write(fd, buff, len);
+      close(fd);
+      break;
+
+    err:
+      write(fd, response_err, sizeof(response_err) - 1);
     }
   }
   return 0;

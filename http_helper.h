@@ -21,4 +21,6 @@ extern ssize_t transform_req(char *const in, const size_t in_len,
                              const char **const payload,
                              size_t *const payload_len);
 
+/* returns pointer to url without protocol */
+char *http_bare_url(char *request);
 #endif /* ifndef HTTP_HELPER_H */
