@@ -23,6 +23,7 @@ static const char response_redirect_html[] =
     "<html><head><meta http-equiv=\"refresh\" content=\"0; "
     "url=https://%s\"></head></html>";
 
+#if (PEER_METHODS != PEER_METHOD_CONNECT)
 static void proxy_ssl(int fd) {
   /* Use macro WRITE and READ to read/write to remote peer
    * TODO: better error message for WRITE and READ */
@@ -157,6 +158,7 @@ end:
   }
   return;
 }
+#endif /* (PEER_METHODS != PEER_METHOD_CONNECT) */
 
 #ifdef PEER_CONNECT_CUSTOM_HOST
 /* use case for ssh using openbsd-netcat:
@@ -248,7 +250,9 @@ int server(int fd) {
     int err = -1;
     err = strncmp(request, "CONNECT", 7);
     if (err == 0) {
-#ifdef PEER_CONNECT_CUSTOM_HOST
+#if defined PEER_CONNECT_CUSTOM_HOST && (PEER_METHODS == PEER_METHOD_CONNECT)
+/* nothing, only to skip the #elif block */
+#elif defined PEER_CONNECT_CUSTOM_HOST
       int use_connect = 0;
       if (strstr(request, CONNECT_HEADER) || !strstr(request, "Host: "))
         use_connect = 1;
@@ -258,7 +262,9 @@ int server(int fd) {
         write(fd, response_err, sizeof(response_err) - 1);
         continue;
       }
-#ifdef PEER_CONNECT_CUSTOM_HOST
+#if defined PEER_CONNECT_CUSTOM_HOST && (PEER_METHODS == PEER_METHOD_CONNECT)
+      proxy_connect(fd, host, port);
+#elif defined PEER_CONNECT_CUSTOM_HOST
       if (use_connect)
         proxy_connect(fd, host, port);
       else
