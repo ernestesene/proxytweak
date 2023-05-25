@@ -106,7 +106,7 @@ static void proxy_ssl(int fd) {
             goto end;
           } else if (err < (int)req_len) {
             perror("partial write");
-            goto end;  // TODO may want to rewrite remaining instead
+            goto end; // TODO may want to rewrite remaining instead
           }
 
           if (payload_len > 0 && payload) {
@@ -249,9 +249,9 @@ int server(int fd) {
     err = strncmp(request, "CONNECT", 7);
     if (err == 0) {
 #ifdef PEER_CONNECT_CUSTOM_HOST
-    int use_connect = 0;
-    if (strstr(request, CONNECT_HEADER) || !strstr(request, "Host: "))
-      use_connect = 1;
+      int use_connect = 0;
+      if (strstr(request, CONNECT_HEADER) || !strstr(request, "Host: "))
+        use_connect = 1;
 #endif
       err = parse_connect_request(request, host, &port);
       if (err) {
