@@ -93,12 +93,14 @@ ssize_t transform_req(char *const in, const size_t in_len, char *const out,
     len = snprintf(out, out_max, req_hdr_fmt_worker2, REQ_METHOD, req.host,
                    req.path, req.header1 REQ_MYMETHOD);
 
-  if (len < 1)
+  if (len < 1) {
     perror("Error:transform_request(): snprintf");
-  else if ((size_t)len >= out_max) {
+    return -1;
+  } else if ((size_t)len >= out_max) {
     fprintf(stderr, "Error:transform_request(): output overflow\n");
-    len = -1;
+    return -1;
   }
+
   return len;
 }
 
