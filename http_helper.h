@@ -6,6 +6,7 @@
 
 #define HTTP_PROTO "http://"
 #define HTTPS_PROTO "https://"
+#define PROTO_SEPERATOR "://"
 
 #define REQUEST_MAX 16384  /* 16KB */
 #define RESPONSE_MAX 16384 /* 16KB */

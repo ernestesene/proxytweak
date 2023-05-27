@@ -3,6 +3,7 @@
 #include <poll.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include "http_helper.h"
@@ -16,12 +17,45 @@
 
 static const char response_err[] = "HTTP/1.1 400 Bad request\r\n\r\n";
 static const char response_ok[] = "HTTP/1.1 200 OK\r\n\r\n";
-static const char response_redirect[] =
-    "HTTP/1.1 301 Moved Permanently\r\nConnection: Close\r\nLocation: "
-    "https://%s\r\n\r\n";
-static const char response_redirect_html[] =
-    "<html><head><meta http-equiv=\"refresh\" content=\"0; "
-    "url=https://%s\"></head></html>";
+
+#if defined REDIRECT_HTTP || defined REDIRECT_HTTPS
+static void redirect(int fd, char *req_buff, size_t buff_len) {
+
+  const char response_redirect[] =
+      "HTTP/1.1 301 Moved Permanently\r\nConnection: Close\r\nLocation: "
+#ifdef REDIRECT_HTTP
+      HTTPS_PROTO
+#elif defined REDIRECT_HTTPS
+      HTTP_PROTO
+#endif
+      "%s\r\n\r\n";
+
+  ssize_t len;
+  len = read(fd, req_buff, buff_len);
+  if (len < 1) goto err;
+  *(req_buff + buff_len) = '\0';
+
+  char *bare_url = http_bare_url(req_buff);
+  if (bare_url == NULL) goto err;
+  char buff[RESPONSE_MAX];
+  len = snprintf(buff, sizeof(buff), response_redirect, bare_url);
+  if (len < 1) {
+    perror("redirect generator");
+    goto err;
+  }
+#ifdef DEBUG
+  fprintf(stderr, "http redirect ===> \n%s\n", buff);
+#endif
+  /* redirect to https */
+  write(fd, buff, len);
+  goto ret;
+
+err:
+  write(fd, response_err, sizeof(response_err) - 1);
+ret:
+  close(fd);
+}
+#endif
 
 #if (PEER_METHODS != PEER_METHOD_CONNECT)
 static void proxy_ssl(int fd) {
@@ -235,7 +269,9 @@ int server(int fd) {
 
   while (1) {
     ssize_t request_len;
-    request_len = read(fd, (void *)request, sizeof(request));
+    const char connect[7] = "CONNECT";
+
+    request_len = recv(fd, (void *)request, sizeof(connect), MSG_PEEK);
     if (request_len < 1) {
 #ifdef DEBUG
       perror("Server read error, or connection closed");
@@ -244,12 +280,13 @@ int server(int fd) {
     }
     *(request + request_len) = '\0';
 
-#ifdef DEBUG
-    printf("Request is \n%s\n", request);
-#endif
     int err = -1;
-    err = strncmp(request, "CONNECT", 7);
+    err = strncmp(request, connect, sizeof(connect));
     if (err == 0) {
+      request_len = read(fd, (void *)request, sizeof(request));
+#ifdef DEBUG
+      printf("Request is \n%s\n", request);
+#endif
 #if defined PEER_CONNECT_CUSTOM_HOST && (PEER_METHODS == PEER_METHOD_CONNECT)
 /* nothing, only to skip the #elif block */
 #elif defined PEER_CONNECT_CUSTOM_HOST
@@ -273,25 +310,12 @@ int server(int fd) {
       proxy_ssl(fd);
 #endif
     } else {
-      char *bare_url = http_bare_url(request);
-      char buff[REQUEST_MAX];
-      ssize_t len = snprintf(buff, sizeof(buff), response_redirect, bare_url);
-      if (len < 1) {
-        perror("http_bare_url");
-        goto err;
-      }
-#ifdef DEBUG
-      fprintf(stderr, "http redirect ===> \n%s\n", buff);
-#endif
-      /* redirect to https */
-      write(fd, buff, len);
-      len = snprintf(buff, sizeof(buff), response_redirect_html, bare_url);
-      write(fd, buff, len);
+#if defined REDIRECT_HTTP
+      redirect(fd, request, sizeof(request));
+#else
+      fprintf(stderr, "no http support\n");
       close(fd);
-      break;
-
-    err:
-      write(fd, response_err, sizeof(response_err) - 1);
+#endif
     }
   }
   return 0;

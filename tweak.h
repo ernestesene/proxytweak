@@ -9,6 +9,12 @@
 /* program listen port */
 #define LISTEN_PORT 8888 /* #tweak */
 
+/* redirect http to https */
+//#define REDIRECT_HTTP
+/* redirect https to http
+ * saves local encryption/decryption overhead */
+//#define REDIRECT_HTTPS
+
 /* web worker request information */
 #define WORKER_HOST "router.eroken.workers.dev"
 extern const char *const req_hdr_fmt_worker1;
@@ -53,6 +59,16 @@ extern const char *const req_hdr_fmt_connect;
 #endif
 #if (PEER_PORT == 443 && !PEER_USE_TLS)
 #warning port 443 should use TLS
+#endif
+
+#if defined REDIRECT_HTTP && defined REDIRECT_HTTPS
+#error only one redirect is allowed
+
+#elif defined REDIRECT_HTTP
+#warning "not compatible with android network connectivity test"
+
+#elif defined REDIRECT_HTTPS
+#warning "REDIRECT_HTTPS not implemented"
 #endif
 
 #define CONNECT_HEADER "User-Agent: connect"
