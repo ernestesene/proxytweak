@@ -58,7 +58,17 @@ ret:
 #endif
 
 #if (PEER_METHODS != PEER_METHOD_CONNECT)
-static void proxy_ssl(int fd) {
+
+static void
+proxy(int fd
+#ifndef REDIRECT_HTTP
+#define HTTPS_MODE true
+#define HTTP_MODE false
+      /* https_mode: use macro HTTPS_MODE (CONNECT request) or HTTP_MODE */
+      ,
+      bool https_mode
+#endif
+) {
   /* Use macro WRITE and READ to read/write to remote peer
    * TODO: better error message for WRITE and READ */
   int err = -1;
@@ -90,9 +100,36 @@ static void proxy_ssl(int fd) {
   if (!ssl_remote) goto end;
 #endif
 
-  write(fd, response_ok, sizeof(response_ok) - 1);
-  ssl_local = tls_accept(fd);
-  if (!ssl_local) goto end;
+#define LOCAL_HANSHAKE()                                                       \
+  {                                                                            \
+    write(fd, response_ok, sizeof(response_ok) - 1);                           \
+    ssl_local = tls_accept(fd);                                                \
+    if (!ssl_local) goto end;                                                  \
+  }
+
+#ifndef REDIRECT_HTTP
+    /* TODO dirty code here */
+#warning dirty code here
+  ssize_t (*WRITE_LOCAL)(void *fd, const void *buf, size_t n);
+  ssize_t (*READ_LOCAL)(void *fd, void *buf, size_t n);
+
+  if (https_mode) {
+    WRITE_LOCAL = SSL_write;
+    READ_LOCAL = SSL_read;
+
+    LOCAL_HANSHAKE();
+  } else {
+    WRITE_LOCAL = write;
+    READ_LOCAL = read;
+
+    ssl_local = fd;
+  }
+#else
+#define WRITE_LOCAL SSL_write
+#define READ_LOCAL SSL_read
+  LOCAL_HANSHAKE();
+
+#endif
 
   // proxy_https main loop
   struct pollfd pfd[POLLFDS] = {0};
@@ -110,7 +147,7 @@ static void proxy_ssl(int fd) {
     if (pfd[FD_LOCAL].revents & POLLIN) {
       if (FD_LOCAL_not_last_read) {
         // read request from local fd
-        buff_len = SSL_read(ssl_local, buffer, sizeof(buffer) - 1);
+        buff_len = READ_LOCAL(ssl_local, buffer, sizeof(buffer) - 1);
         if (buff_len < 1) {
           ERR_print_errors_fp(stderr);
           goto end;
@@ -123,9 +160,14 @@ static void proxy_ssl(int fd) {
 #endif
         // modify request
         req_len = transform_req(buffer, buff_len, request, sizeof(request),
-                                &payload, &payload_len);
+                                &payload, &payload_len
+#ifndef REDIRECT_HTTP
+                                ,
+                                https_mode
+#endif
+        );
         if (req_len < 1) {
-          err = SSL_write(ssl_local, response_err, sizeof(response_err) - 1);
+          err = WRITE_LOCAL(ssl_local, response_err, sizeof(response_err) - 1);
           if (err < 1) goto end;
         } else {
 #ifdef DEBUG
@@ -155,7 +197,7 @@ static void proxy_ssl(int fd) {
         }
       } else {
         // continue reading local fd
-        buff_len = SSL_read(ssl_local, buffer, sizeof(buffer));
+        buff_len = READ_LOCAL(ssl_local, buffer, sizeof(buffer));
         if (buff_len < 1) {
           ERR_print_errors_fp(stderr);
           goto end;
@@ -177,12 +219,17 @@ static void proxy_ssl(int fd) {
         goto end;
       }
       // write local via SSL_write
-      err = SSL_write(ssl_local, buffer, buff_len);
+      err = WRITE_LOCAL(ssl_local, buffer, buff_len);
       if (err != (int)buff_len) goto end;
     }
   } while (1);
 end:
-  if (ssl_local) tls_shutdown(ssl_local);
+  if (
+#ifndef REDIRECT_HTTP
+      https_mode &&
+#endif
+      ssl_local)
+    tls_shutdown(ssl_local);
   close(fd);
 #if (PEER_USE_TLS)
   if (ssl_remote) tls_shutdown(ssl_remote);
@@ -301,20 +348,30 @@ int server(int fd) {
       }
 #if defined PEER_CONNECT_CUSTOM_HOST && (PEER_METHODS == PEER_METHOD_CONNECT)
       proxy_connect(fd, host, port);
-#elif defined PEER_CONNECT_CUSTOM_HOST
+#else
+
+#if defined PEER_CONNECT_CUSTOM_HOST
       if (use_connect)
         proxy_connect(fd, host, port);
       else
-        proxy_ssl(fd);
-#else
-      proxy_ssl(fd);
+#endif
+        proxy(fd
+#ifndef REDIRECT_HTTP
+              ,
+              HTTPS_MODE
+#endif
+        );
+
 #endif
     } else {
 #if defined REDIRECT_HTTP
       redirect(fd, request, sizeof(request));
-#else
-      fprintf(stderr, "no http support\n");
+#elif (PEER_METHODS == PEER_METHOD_CONNECT)
+#warning "http not supported"
+      fprintf(stderr, "http not supported\n");
       close(fd);
+#else
+      proxy(fd, HTTP_MODE);
 #endif
     }
   }

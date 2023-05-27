@@ -29,7 +29,13 @@ int parse_connect_request(char *req, char *host, int *port) {
 }
 
 static int parse_request(const char *const request, size_t request_len,
-                         struct request *req) {
+                         struct request *req
+#ifndef REDIRECT_HTTP
+                         ,
+                         bool https_mode
+#endif
+) {
+
   char *needle;
   int err = -1;
 
@@ -43,6 +49,12 @@ static int parse_request(const char *const request, size_t request_len,
 
   req->method = strtok_r((char *)request, " ", &needle);
   req->path = strtok_r(NULL, " ", &needle);
+#ifndef REDIRECT_HTTP
+  if (!https_mode) {
+    req->path += sizeof(HTTP_PROTO) - 1;
+    req->path = strchr(req->path, '/');
+  }
+#endif
   strtok_r(NULL, "\n", &needle); /* HTTP/1.1\r\n */
 
   err = strncmp(needle, "Host: ", 6);
@@ -67,7 +79,12 @@ static int parse_request(const char *const request, size_t request_len,
 }
 ssize_t transform_req(char *const in, const size_t in_len, char *const out,
                       const size_t out_max, const char **const payload,
-                      size_t *const payload_len) {
+                      size_t *const payload_len
+#ifndef REDIRECT_HTTP
+                      ,
+                      bool https_mode
+#endif
+) {
   struct request req = {0};
   ssize_t len;
 
@@ -76,7 +93,13 @@ ssize_t transform_req(char *const in, const size_t in_len, char *const out,
     fprintf(stderr, "transform_request: invalid input\n");
     return -1;
   }
-  if (parse_request(in, in_len, &req)) return -1;
+  if (parse_request(in, in_len, &req
+#ifndef REDIRECT_HTTP
+                    ,
+                    https_mode
+#endif
+                    ))
+    return -1;
   *payload = req.payload;
   *payload_len = req.payload_length;
 #if (PEER_METHODS & PEER_METHOD_POST)
@@ -101,6 +124,18 @@ ssize_t transform_req(char *const in, const size_t in_len, char *const out,
     return -1;
   }
 
+#ifndef REDIRECT_HTTP
+  if (!https_mode) {
+    /* change /proxs/ to /proxh/ */
+    char *tmp = strstr(out, "/proxs/");
+    if (tmp == NULL) {
+      fprintf(stderr, "can't change /proxs/ to /proxh/");
+      return -1;
+    }
+    tmp += 5;
+    *tmp = 'h';
+  }
+#endif
   return len;
 }
 

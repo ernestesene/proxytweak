@@ -9,8 +9,9 @@
 /* program listen port */
 #define LISTEN_PORT 8888 /* #tweak */
 
-/* redirect http to https */
-//#define REDIRECT_HTTP
+/* redirect http to https
+ * lower runtime overhead */
+#define REDIRECT_HTTP
 /* redirect https to http
  * saves local encryption/decryption overhead */
 //#define REDIRECT_HTTPS
