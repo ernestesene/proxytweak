@@ -6,6 +6,11 @@
 
 #include "tweak.h"
 
+/* maximum port number from "/etc/services" */
+#define PORT_MAX 49150
+/* maximum string to hold PORT_MAX with null byte */
+#define PORT_MAX_STR 6
+
 struct request {
   const char *payload;
   size_t payload_length;
@@ -17,14 +22,24 @@ struct request {
 };
 
 /* TODO: possible buffer overflow here */
-int parse_connect_request(char *req, char *host, int *port) {
-  char *_host = NULL, *_port = NULL;
-  strtok(req, " ");
-  _host = strtok(NULL, ":");
-  _port = strtok(NULL, " ");
-  *port = atoi(_port);
-  if (_host == NULL || *port == 0) return 1;
-  strcpy(host, _host);
+short parse_connect_request(char *req, char *host, unsigned short *port) {
+  char *tmp, *saveptr;
+  unsigned int port_;
+
+  if (!strtok_r(req, " ", &saveptr)) return -1;
+
+  tmp = strtok_r(NULL, ":", &saveptr);
+  if (!tmp) return -1;
+  if ((saveptr - tmp) > HOST_MAX) return -1;
+  strcpy(host, tmp);
+
+  tmp = strtok_r(NULL, " ", &saveptr);
+  if (!tmp) return -1;
+  if ((saveptr - tmp) > PORT_MAX_STR) return -1;
+  port_ = atoi(tmp);
+  if (port_ > PORT_MAX || port_ == 0) return -1;
+  *port = port_;
+
   return 0;
 }
 

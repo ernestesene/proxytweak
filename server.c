@@ -249,7 +249,7 @@ end:
  * use case curl:
  * https_proxy="http://127.0.0.1:8888" curl https://host.net -A connect
  */
-static void proxy_connect(int fd, const char *host, int port) {
+static void proxy_connect(int fd, const char *host, unsigned short port) {
 #ifdef DEBUG
   fprintf(stderr, "proxy_connect mode\n");
 #endif
@@ -312,7 +312,7 @@ int server(int fd) {
   char request[REQUEST_MAX] = {0};
 
   char host[HOST_MAX] = {0};
-  int port = 0;
+  unsigned short port = 0;
 
   while (1) {
     ssize_t request_len;

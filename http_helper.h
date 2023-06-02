@@ -16,7 +16,7 @@
 #define HOST_MAX 64
 
 /* TODO change bad_request to match HTTP RESPONSE */
-extern int parse_connect_request(char *req, char *host, int *port);
+extern short parse_connect_request(char *req, char *host, unsigned short *port);
 
 /* returns len of out or -1 on error */
 extern ssize_t transform_req(char *const in, const size_t in_len,
