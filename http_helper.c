@@ -43,54 +43,65 @@ short parse_connect_request(char *req, char *host, unsigned short *port) {
   return 0;
 }
 
-static int parse_request(const char *const request, size_t request_len,
-                         struct request *req
+/* TODO: possible buffer overflow here */
+static short parse_request(char *const _request, size_t request_len,
+                           struct request *req
 #ifndef REDIRECT_HTTP
-                         ,
-                         bool https_mode
+                           ,
+                           bool https_mode
 #endif
 ) {
 
   char *needle;
-  int err = -1;
+  const char *request = _request;
+  int err;
 
   /* only if payload is part of header */
-  needle = strstr(request, "\r\n\r\n") + 4;
+  needle = strstr(request, "\r\n\r\n");
+  if (!needle) return -1;
+  needle += 4;
   if (needle < request + request_len) {
     req->payload = needle;
     req->payload_length = request + request_len - needle;
   } else if (needle > request + request_len)
-    return 1;
+    return -1;
 
   req->method = strtok_r((char *)request, " ", &needle);
+  if (!req->method) return -1;
   req->path = strtok_r(NULL, " ", &needle);
+  if (!req->path) return -1;
 #ifndef REDIRECT_HTTP
   if (!https_mode) {
     req->path += sizeof(HTTP_PROTO) - 1;
     req->path = strchr(req->path, '/');
+    if (!req->path) return -1;
   }
 #endif
-  strtok_r(NULL, "\n", &needle); /* HTTP/1.1\r\n */
+  /* HTTP/1.1\r\n */
+  if (!strtok_r(NULL, "\n", &needle)) return -1;
 
   err = strncmp(needle, "Host: ", 6);
   if (err == 0) {
     req->header2 = NULL;
     needle += 6;
     req->host = strtok_r(NULL, "\r", &needle);
+    if (!req->host) return -1;
   } else {
     req->header2 = needle;
-    needle = strstr(needle, "\r\nHost:");
+    needle = strstr(needle, "\r\nHost: ");
+    if (!needle) return -1;
     *needle = '\0'; /* Null terminate req->header2 */
     needle += 8;
     req->host = strtok_r(NULL, "\r", &needle);
+    if (!req->host) return -1;
   }
   needle++;
   req->header1 = needle;
   needle = strstr(needle, "\r\n\r\n");
+  /* check for null was done for this before */
   *needle = '\0'; /* Null terminate req->header1 */
 
-  if (req->method && req->path && req->host && req->header1) return 0;
-  return 1;
+  return 0;
 }
 ssize_t transform_req(char *const in, const size_t in_len, char *const out,
                       const size_t out_max, const char **const payload,
