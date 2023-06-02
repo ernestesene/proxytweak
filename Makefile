@@ -25,4 +25,7 @@ TAGS:
 
 .PHONY: clean backup
 clean:
-	-rm $(OBJS) $(PROGRAM) tags TAGS
+	-rm $(OBJS) $(PROGRAM)
+
+distclean: clean
+	-rm  tags TAGS
