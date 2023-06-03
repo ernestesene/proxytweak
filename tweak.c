@@ -1,10 +1,13 @@
 #include "tweak.h"
 #include "http_helper.h"
 
+/* worker request formats */
+#define PROXS "/proxs/"
+
 #if PEER_TYPE_CLOUDFLARE
-#define PRE_PATH
+#define PRE_PATH PROXS
 #else
-#define PRE_PATH HTTP_PROTO WORKER_HOST
+#define PRE_PATH HTTP_PROTO WORKER_HOST PROXS
 #endif
 
 /* TODO: better method detection needed */
@@ -14,8 +17,7 @@
 #define MY_METHOD "mymethod: %s\r\n"
 #endif
 
-#define TMP1                                                                   \
-  "%s " PRE_PATH "/proxs/%s%s HTTP/1.1\r\nHost: " PEER_CUSTOM_HOST "\r\n%s"
+#define TMP1 "%s " PRE_PATH "%s%s HTTP/1.1\r\nHost: " PEER_CUSTOM_HOST "\r\n%s"
 #define TMP2 "\r\n" MY_METHOD "\r\n"
 
 /* includes header2 */
