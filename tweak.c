@@ -24,6 +24,19 @@
 const char *const req_hdr_fmt_worker1 = TMP1 "\r\n%s" TMP2;
 /* no header2 */
 const char *const req_hdr_fmt_worker2 = TMP1 TMP2;
+/* worker request formats */
+
+/* worker bypass format */
+#ifdef TWEAK_BYPASS_WORKER_FOR_HTTP
+#undef PRE_PATH
+#define PRE_PATH HTTP_PROTO
+
+/* includes header2 */
+const char *const req_hdr_fmt_1 = TMP1 "\r\n%s" TMP2;
+/* no header2 */
+const char *const req_hdr_fmt_2 = TMP1 TMP2;
+
+#endif
 
 /* for custom connect */
 #ifdef PEER_CONNECT_CUSTOM_HOST

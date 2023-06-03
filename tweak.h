@@ -16,10 +16,16 @@
  * saves local encryption/decryption overhead */
 //#define REDIRECT_HTTPS
 
+/* bypass worker for "http" methods supported by peer
+ * note: only GET,POST,HEAD methods is implemented */
+#define TWEAK_BYPASS_WORKER_FOR_HTTP /* #tweak comment to disable */
+
 /* web worker request information */
 #define WORKER_HOST "router.eroken.workers.dev"
 extern const char *const req_hdr_fmt_worker1;
 extern const char *const req_hdr_fmt_worker2;
+extern const char *const req_hdr_fmt_1;
+extern const char *const req_hdr_fmt_2;
 
 extern const char *const req_hdr_fmt_connect;
 /* allowed HTTP methods for peers */
@@ -46,7 +52,7 @@ extern const char *const req_hdr_fmt_connect;
 #define PEER_CONNECT_CUSTOM_HOST "connect.host.net:443" /* #tweak */
 #endif
 
-/* catch obvious error in tweak */
+/* --- catch obvious error in tweak */
 #if !PEER_METHODS
 #error no known peer method given
 #endif
@@ -72,6 +78,27 @@ extern const char *const req_hdr_fmt_connect;
 #elif defined REDIRECT_HTTPS
 #warning "REDIRECT_HTTPS not implemented"
 #endif
+/* --- */
+
+/* --- anti-collision measures */
+#ifdef TWEAK_BYPASS_WORKER_FOR_HTTP
+
+#if PEER_TYPE_CLOUDFLARE
+#warning "TWEAK_BYPASS_WORKER_FOR_HTTP disabled: CLOUDFLARE not an http proxy"
+#undef TWEAK_BYPASS_WORKER_FOR_HTTP
+
+#elif defined REDIRECT_HTTP
+#warning "TWEAK_BYPASS_WORKER_FOR_HTTP: REDIRECT_HTTP disabled"
+#undef REDIRECT_HTTP
+#endif /* if PEER_TYPE_CLOUDFLARE */
+
+#if PEER_METHODS == PEER_METHOD_CONNECT
+#warning "TWEAK_BYPASS_WORKER_FOR_HTTP disabled: http not supported"
+#undef TWEAK_BYPASS_WORKER_FOR_HTTP
+#endif
+
+#endif /* ifdef TWEAK_BYPASS_WORKER_FOR_HTTP */
+/* --- */
 
 #define CONNECT_HEADER "User-Agent: connect"
 

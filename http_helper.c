@@ -128,6 +128,27 @@ ssize_t transform_req(char *const in, const size_t in_len, char *const out,
     return -1;
   *payload = req.payload;
   *payload_len = req.payload_length;
+
+  const char *req_fmt1 = req_hdr_fmt_worker1;
+  const char *req_fmt2 = req_hdr_fmt_worker2;
+#ifdef TWEAK_BYPASS_WORKER_FOR_HTTP
+  if (!https_mode) {
+    if ((PEER_METHODS & PEER_METHOD_GET) && (*req.method == 'G'))
+      goto bypass_worker;
+    else if ((PEER_METHODS & PEER_METHOD_POST) && (*req.method == 'P'))
+      goto bypass_worker;
+    else if ((PEER_METHODS & PEER_METHOD_HEAD) && (*req.method == 'H'))
+      goto bypass_worker;
+    else
+      goto out;
+
+  bypass_worker:
+    req_fmt1 = req_hdr_fmt_1;
+    req_fmt2 = req_hdr_fmt_2;
+  out:
+  }
+#endif /* ifdef TWEAK_BYPASS_WORKER_FOR_HTTP */
+
 #if (PEER_METHODS & PEER_METHOD_POST)
 #define REQ_METHOD req.method
 #define REQ_MYMETHOD
@@ -136,11 +157,11 @@ ssize_t transform_req(char *const in, const size_t in_len, char *const out,
 #define REQ_MYMETHOD , req.method
 #endif
   if (req.header2 != NULL)
-    len = snprintf(out, out_max, req_hdr_fmt_worker1, REQ_METHOD, req.host,
-                   req.path, req.header1, req.header2 REQ_MYMETHOD);
+    len = snprintf(out, out_max, req_fmt1, REQ_METHOD, req.host, req.path,
+                   req.header1, req.header2 REQ_MYMETHOD);
   else
-    len = snprintf(out, out_max, req_hdr_fmt_worker2, REQ_METHOD, req.host,
-                   req.path, req.header1 REQ_MYMETHOD);
+    len = snprintf(out, out_max, req_fmt2, REQ_METHOD, req.host, req.path,
+                   req.header1 REQ_MYMETHOD);
 
   if (len < 1) {
     perror("Error:transform_request(): snprintf");
@@ -150,7 +171,7 @@ ssize_t transform_req(char *const in, const size_t in_len, char *const out,
     return -1;
   }
 
-#ifndef REDIRECT_HTTP
+#if !defined REDIRECT_HTTP && !defined TWEAK_BYPASS_WORKER_FOR_HTTP
   if (!https_mode) {
     /* change /proxs/ to /proxh/ */
     char *tmp = strstr(out, "/proxs/");
