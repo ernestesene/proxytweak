@@ -25,6 +25,7 @@ extern const char *const req_hdr_fmt_connect;
 /* allowed HTTP methods for peers */
 #define PEER_METHOD_GET 0b00000001
 #define PEER_METHOD_POST 0b00000010
+#define PEER_METHOD_HEAD 0b00000100
 #define PEER_METHOD_CONNECT 0x10000000
 #define PEER_METHOD_ALL 0x11111111
 
