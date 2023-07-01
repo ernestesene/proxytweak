@@ -138,14 +138,14 @@ proxy(int fd
   pfd[FD_LOCAL].fd = fd;
   pfd[FD_LOCAL].events = POLLIN;
 
-  bool FD_LOCAL_not_last_read = true;
+  bool transform_next_local_read = true;
   do {
     if (poll(pfd, POLLFDS, -1) < 1) {
       perror("poll failed");
       break;
     }
     if (pfd[FD_LOCAL].revents & POLLIN) {
-      if (FD_LOCAL_not_last_read) {
+      if (transform_next_local_read) {
         // read request from local fd
         buff_len = READ_LOCAL(ssl_local, buffer, sizeof(buffer) - 1);
         if (buff_len < 1) {
@@ -193,7 +193,7 @@ proxy(int fd
               goto end;
             }
           }
-          FD_LOCAL_not_last_read = false;
+          transform_next_local_read = false;
         }
       } else {
         // continue reading local fd
@@ -211,7 +211,7 @@ proxy(int fd
       }
     }
     if (pfd[FD_REMOTE].revents & POLLIN) {
-      FD_LOCAL_not_last_read = true;
+      transform_next_local_read = true;
       // read remote via READ
       buff_len = READ(ssl_remote, buffer, sizeof(buffer));
       if (buff_len < 1) {
