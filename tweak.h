@@ -5,20 +5,20 @@
 
 /* program listen address */
 /* use INADDR_LOOPBACK or INADDR_ANY or see "netinet/in.h" */
-#define LISTEN_ADDR INADDR_LOOPBACK /* #tweak */
+#define LISTEN_ADDR INADDR_ANY /* #tweak */
 /* program listen port */
 #define LISTEN_PORT 8888 /* #tweak */
 
 /* redirect http to https
  * lower runtime overhead */
-#define REDIRECT_HTTP
+//#define REDIRECT_HTTP
 /* redirect https to http
  * saves local encryption/decryption overhead */
 //#define REDIRECT_HTTPS
 
 /* bypass worker for "http" methods supported by peer
  * note: only GET,POST,HEAD methods is implemented */
-#define TWEAK_BYPASS_WORKER_FOR_HTTP /* #tweak comment to disable */
+//#define TWEAK_BYPASS_WORKER_FOR_HTTP /* #tweak comment to disable */
 
 /* web worker request information */
 #define WORKER_HOST "router.eroken.workers.dev"
