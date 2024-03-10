@@ -100,6 +100,4 @@ extern const char *const req_hdr_fmt_connect;
 #endif /* ifdef TWEAK_BYPASS_WORKER_FOR_HTTP */
 /* --- */
 
-#define CONNECT_HEADER "User-Agent: connect"
-
 #endif /* ifndef TWEAK_H */

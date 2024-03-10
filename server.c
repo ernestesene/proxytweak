@@ -247,7 +247,7 @@ end:
  * -o ProxyCommand="nc -FXconnect -x127.0.0.1:8888 %h %p"
  *
  * use case curl:
- * https_proxy="http://127.0.0.1:8888" curl https://host.net -A connect
+ * https_proxy="http://127.0.0.1:8888" curl https://host.net
  */
 static void proxy_connect(int fd, const char *host, unsigned short port) {
 #ifdef DEBUG
@@ -334,33 +334,21 @@ int server(int fd) {
 #ifdef DEBUG
       printf("Request is \n%s\n", request);
 #endif
-#if defined PEER_CONNECT_CUSTOM_HOST && (PEER_METHODS == PEER_METHOD_CONNECT)
-/* nothing, only to skip the #elif block */
-#elif defined PEER_CONNECT_CUSTOM_HOST
-      int use_connect = 0;
-      if (strstr(request, CONNECT_HEADER) || !strstr(request, "Host: "))
-        use_connect = 1;
-#endif
+
       err = parse_connect_request(request, host, &port);
       if (err) {
         write(fd, response_err, sizeof(response_err) - 1);
         continue;
       }
-#if defined PEER_CONNECT_CUSTOM_HOST && (PEER_METHODS == PEER_METHOD_CONNECT)
+#if defined PEER_CONNECT_CUSTOM_HOST
       proxy_connect(fd, host, port);
 #else
-
-#if defined PEER_CONNECT_CUSTOM_HOST
-      if (use_connect)
-        proxy_connect(fd, host, port);
-      else
-#endif
-        proxy(fd
+      proxy(fd
 #ifndef REDIRECT_HTTP
-              ,
-              HTTPS_MODE
+            ,
+            HTTPS_MODE
 #endif
-        );
+      );
 
 #endif
     } else {
