@@ -82,11 +82,13 @@ static short parse_request(char *const _request, size_t request_len,
 
   err = strncmp(needle, "Host: ", 6);
   if (err == 0) {
+    /* case 1 "Host: " comes first before other headers */
     req->header2 = NULL;
     needle += 6;
     req->host = strtok_r(NULL, "\r", &needle);
     if (!req->host) return -1;
   } else {
+    /* case 2 "Host: " may be within other headers or last, see case 3 */
     req->header2 = needle;
     needle = strstr(needle, "\r\nHost: ");
     if (!needle) return -1;
@@ -98,8 +100,12 @@ static short parse_request(char *const _request, size_t request_len,
   needle++;
   req->header1 = needle;
   needle = strstr(needle, "\r\n\r\n");
-  /* check for null was done for this before */
-  *needle = '\0'; /* Null terminate req->header1 */
+  if (!needle) {
+    /* case 3 "Host: \r\n\r\n" is last header */
+    req->header1 = req->header2;
+    req->header2 = NULL;
+  } else
+    *needle = '\0'; /* Null terminate req->header1 */
 
   return 0;
 }
