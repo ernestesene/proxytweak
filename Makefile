@@ -23,9 +23,14 @@ tags: *.c
 TAGS:
 	ctags -R  --kinds-C=m   -f TAGS /usr/include/sys /usr/include/*.h /usr/include/bits /usr/include/asm /usr/include/linux
 
+make.d: *.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) *.c -MM > $@
+
+include make.d
+
 .PHONY: clean backup
 clean:
-	-rm $(OBJS) $(PROGRAM)
+	-rm $(OBJS) $(PROGRAM) make.d
 
 distclean: clean
 	-rm  tags TAGS
