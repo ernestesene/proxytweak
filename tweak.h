@@ -18,7 +18,7 @@
 
 /* bypass worker for "http" methods supported by peer
  * note: only GET,POST,HEAD methods is implemented */
-//#define TWEAK_BYPASS_WORKER_FOR_HTTP /* #tweak comment to disable */
+#define TWEAK_BYPASS_WORKER_FOR_HTTP /* #tweak comment to disable */
 
 /* web worker request information */
 #define WORKER_HOST "router.eroken.workers.dev"
