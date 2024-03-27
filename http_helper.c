@@ -138,6 +138,7 @@ ssize_t transform_req(char *const in, const size_t in_len, char *const out,
   const char *req_fmt1 = req_hdr_fmt_worker1;
   const char *req_fmt2 = req_hdr_fmt_worker2;
 #ifdef TWEAK_BYPASS_WORKER_FOR_HTTP
+  bool bypassed = false;
   if (!https_mode) {
     if ((PEER_METHODS & PEER_METHOD_GET) && (*req.method == 'G'))
       goto bypass_worker;
@@ -151,6 +152,7 @@ ssize_t transform_req(char *const in, const size_t in_len, char *const out,
   bypass_worker:
     req_fmt1 = req_hdr_fmt_1;
     req_fmt2 = req_hdr_fmt_2;
+    bypassed = true;
   out:
   }
 #endif /* ifdef TWEAK_BYPASS_WORKER_FOR_HTTP */
@@ -177,7 +179,10 @@ ssize_t transform_req(char *const in, const size_t in_len, char *const out,
     return -1;
   }
 
-#if !defined REDIRECT_HTTP && !defined TWEAK_BYPASS_WORKER_FOR_HTTP
+#ifdef TWEAK_BYPASS_WORKER_FOR_HTTP
+  if (bypassed) goto ret;
+#endif
+#ifndef REDIRECT_HTTP
   if (!https_mode) {
     /* change /proxs/ to /proxh/ */
     char *tmp = strstr(out, "/proxs/");
@@ -189,6 +194,8 @@ ssize_t transform_req(char *const in, const size_t in_len, char *const out,
     *tmp = 'h';
   }
 #endif
+
+ret:
   return len;
 }
 
