@@ -154,7 +154,7 @@ ssize_t transform_req(char *const in, const size_t in_len, char *const out,
     req_fmt1 = req_hdr_fmt_1;
     req_fmt2 = req_hdr_fmt_2;
     bypassed = true;
-  out:
+  out:;
   }
 #endif /* ifdef TWEAK_BYPASS_WORKER_FOR_HTTP */
 
