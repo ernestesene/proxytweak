@@ -30,7 +30,8 @@ short parse_connect_request(char *req, char *host, unsigned short *port) {
 
   tmp = strtok_r(NULL, ":", &saveptr);
   if (!tmp) return -1;
-  if ((saveptr - tmp) > HOST_MAX) return -1;
+  if ((saveptr - tmp) > HOST_MAX - 1) return -1;
+  /* buffer overflow already handled by previous line, hence strcpy() */
   strcpy(host, tmp);
 
   tmp = strtok_r(NULL, " ", &saveptr);
