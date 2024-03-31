@@ -20,7 +20,6 @@ static const char response_ok[] = "HTTP/1.1 200 OK\r\n\r\n";
 
 #if defined REDIRECT_HTTP || defined REDIRECT_HTTPS
 static void redirect(int fd, char *req_buff, size_t buff_len) {
-
   const char response_redirect[] =
       "HTTP/1.1 301 Moved Permanently\r\nConnection: Close\r\nLocation: "
 #ifdef REDIRECT_HTTP
@@ -59,14 +58,14 @@ ret:
 
 #if (PEER_METHODS != PEER_METHOD_CONNECT)
 
-static void
-proxy(int fd
+static void proxy(
+    int fd
 #ifndef REDIRECT_HTTP
 #define HTTPS_MODE true
 #define HTTP_MODE false
-      /* https_mode: use macro HTTPS_MODE (CONNECT request) or HTTP_MODE */
-      ,
-      bool https_mode
+    /* https_mode: use macro HTTPS_MODE (CONNECT request) or HTTP_MODE */
+    ,
+    bool https_mode
 #endif
 ) {
   /* Use macro WRITE and READ to read/write to remote peer
@@ -100,11 +99,11 @@ proxy(int fd
   if (!ssl_remote) goto end;
 #endif
 
-#define LOCAL_HANSHAKE()                                                       \
-  {                                                                            \
-    write(fd, response_ok, sizeof(response_ok) - 1);                           \
-    ssl_local = tls_accept(fd);                                                \
-    if (!ssl_local) goto end;                                                  \
+#define LOCAL_HANSHAKE()                             \
+  {                                                  \
+    write(fd, response_ok, sizeof(response_ok) - 1); \
+    ssl_local = tls_accept(fd);                      \
+    if (!ssl_local) goto end;                        \
   }
 
 #ifndef REDIRECT_HTTP
@@ -183,7 +182,7 @@ proxy(int fd
             goto end;
           } else if (err < (int)req_len) {
             perror("partial write");
-            goto end; // TODO may want to rewrite remaining instead
+            goto end;  // TODO may want to rewrite remaining instead
           }
 
           if (payload_len > 0 && payload) {
