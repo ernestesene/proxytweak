@@ -56,15 +56,17 @@ ret:
 }
 #endif
 
-#if (PEER_METHODS != PEER_METHOD_CONNECT)
-
-static void proxy(
-    int fd
 #ifndef REDIRECT_HTTP
 #define HTTPS_MODE true
 #define HTTP_MODE false
-    /* https_mode: use macro HTTPS_MODE (CONNECT request) or HTTP_MODE */
+#endif
+
+#if (PEER_METHODS != PEER_METHOD_CONNECT)
+static void proxy(
+    int fd
+#ifndef REDIRECT_HTTP
     ,
+    /* https_mode: use macro HTTPS_MODE (CONNECT request) or HTTP_MODE */
     bool https_mode
 #endif
 ) {
