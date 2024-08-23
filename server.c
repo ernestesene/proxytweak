@@ -111,21 +111,20 @@ static void proxy(
 
 /* if https only */
 #ifndef REDIRECT_HTTP
-    /* TODO dirty code here */
-#warning dirty code here
-  ssize_t (*WRITE_LOCAL)(void *fd, const void *buf, size_t n);
-  ssize_t (*READ_LOCAL)(void *fd, void *buf, size_t n);
+  int (*WRITE_LOCAL)(SSL * fd, const void *buf, int n) = SSL_write;
+  int (*READ_LOCAL)(SSL * fd, void *buf, int n) = SSL_read;
 
   if (https_mode) {
-    WRITE_LOCAL = SSL_write;
-    READ_LOCAL = SSL_read;
-
     LOCAL_HANSHAKE();
   } else {
+#warning warning suppressed here
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
     WRITE_LOCAL = write;
     READ_LOCAL = read;
+#pragma GCC diagnostic pop
 
-    ssl_local = fd;
+    ssl_local = (SSL *)(long)fd;
   }
 #else
 #define WRITE_LOCAL SSL_write
