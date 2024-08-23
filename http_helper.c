@@ -122,8 +122,7 @@ ssize_t transform_req(char *const in, const size_t in_len, char *const out,
   struct request req = {0};
   ssize_t len;
 
-  if (!in || !out || in_len < 1 || out_max < in_len || !payload ||
-      !payload_len) {
+  if (in_len < 1 || out_max < in_len) {
     fprintf(stderr, "transform_request: invalid input\n");
     return -1;
   }
