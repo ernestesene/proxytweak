@@ -1,13 +1,13 @@
 PROGRAM = proxytweak
-CC=cc
+CC ?=cc
 
-L_SSL=-lssl -lcrypto
-LIBS=-lpthread $(L_SSL)
-DEBUG=-DDEBUG -ggdb -Og
-CFLAGS=-c -Wall -Wextra $(DEBUG)
-LDFLAGS=$(LIBS)
+L_SSL ?=-lssl -lcrypto
+LIBS ?=-lpthread $(L_SSL)
+DEBUG ?=-DDEBUG -ggdb -Og
+CFLAGS ?=-c -Wall -Wextra $(DEBUG)
+LDFLAGS ?=$(LIBS)
 
-OBJS=main.o server.o socket_helper.o tls_helper.o http_helper.o tweak.o
+OBJS ?=main.o server.o socket_helper.o tls_helper.o http_helper.o tweak.o
 
 
 all: $(PROGRAM)
