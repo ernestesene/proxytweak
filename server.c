@@ -109,6 +109,7 @@ static void proxy(
     if (!ssl_local) goto end;                        \
   }
 
+/* if https only */
 #ifndef REDIRECT_HTTP
     /* TODO dirty code here */
 #warning dirty code here
