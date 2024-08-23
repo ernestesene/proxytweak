@@ -117,9 +117,9 @@ static void proxy(
   if (https_mode) {
     LOCAL_HANSHAKE();
   } else {
-#warning warning suppressed here
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
+    /* TODO: dirty code here */
     WRITE_LOCAL = write;
     READ_LOCAL = read;
 #pragma GCC diagnostic pop
