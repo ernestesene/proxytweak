@@ -196,7 +196,9 @@ ssize_t transform_req(char *const in, const size_t in_len, char *const out,
   }
 #endif
 
+#ifdef TWEAK_BYPASS_WORKER_FOR_HTTP
 ret:
+#endif
   return len;
 }
 
