@@ -3,7 +3,7 @@ CC ?=cc
 
 L_SSL ?=-lssl -lcrypto
 LIBS ?=-lpthread $(L_SSL)
-DEBUG ?=-DDEBUG -ggdb -Og
+DEBUG ?=-DDEBUG -ggdb -Og -fanalyzer
 CFLAGS ?=-c -Wall -Wextra $(DEBUG)
 LDFLAGS ?=$(LIBS)
 
