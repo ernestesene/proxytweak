@@ -17,20 +17,23 @@ $(PROGRAM): $(OBJS)
 %.o: %.c %.h
 	$(CC) -o $@ $(CFLAGS) $<
 
+tweak.h: tweak_in.h
+	$(CC) -E -dD $^ | grep -Ev "built-in|define _|linux|unix" > tweak.h
+
 tags: *.c
 	ctags -R --kinds-C=+pxD *.h *.c
 # system tags
 TAGS:
 	ctags -R  --kinds-C=m   -f TAGS /usr/include/sys /usr/include/*.h /usr/include/bits /usr/include/asm /usr/include/linux
 
-make.d: *.h
+make.d: *.h tweak.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) *.c -MM > $@
 
 include make.d
 
 .PHONY: clean backup
 clean:
-	-rm $(OBJS) $(PROGRAM) make.d
+	-rm $(OBJS) $(PROGRAM) make.d tweak.h
 
 distclean: clean
 	-rm  tags TAGS
