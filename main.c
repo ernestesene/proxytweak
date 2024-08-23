@@ -12,7 +12,7 @@
 #include "tls_helper.h"
 #include "tweak.h"
 
-void *thread_function(void *arg) {
+__attribute__((nonnull)) void *thread_function(void *arg) {
   int *newfd = NULL;
   int err = 0;
 

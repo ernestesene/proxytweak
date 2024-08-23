@@ -8,12 +8,13 @@ enum ssl_method { client_method, server_method };
 static SSL_CTX *ctx_client = NULL;
 static SSL_CTX *ctx_server = NULL;
 
-static int ssl_configure_context(SSL_CTX *ctx, enum ssl_method method);
+static int ssl_configure_context(SSL_CTX *ctx, enum ssl_method method)
+    __attribute__((nonnull));
 void tls_shutdown(SSL *ssl) {
   SSL_shutdown(ssl);
   SSL_free(ssl);
 }
-static void tls_print_error(SSL *ssl, int err) {
+__attribute__((nonnull)) static void tls_print_error(SSL *ssl, int err) {
   ERR_print_errors_fp(stderr);
   if (SSL_ERROR_SYSCALL == SSL_get_error(ssl, err)) perror("tls_error");
 }
@@ -44,9 +45,7 @@ int init_tls_helper() {
   if (ctx_server && ctx_client) return 0;
   return 1;
 }
-
 static int ssl_configure_context(SSL_CTX *ctx, enum ssl_method method) {
-  if (ctx == NULL) return 1;
   /* Set the key and cert to use */
   if (method == server_method) {
     if (SSL_CTX_use_certificate_file(ctx, "selfsign.crt", SSL_FILETYPE_PEM) <=

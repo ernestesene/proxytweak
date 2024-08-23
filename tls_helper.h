@@ -8,7 +8,7 @@
 
 /* return 0 on success */
 extern int init_tls_helper();
-extern void tls_shutdown(SSL* ssl);
+extern void tls_shutdown(SSL* ssl) __attribute__((nonnull));
 
 /**
  * tls_accept() - set up server TLS and do handshake

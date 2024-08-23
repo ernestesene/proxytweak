@@ -19,7 +19,8 @@ static const char response_err[] = "HTTP/1.1 400 Bad request\r\n\r\n";
 static const char response_ok[] = "HTTP/1.1 200 OK\r\n\r\n";
 
 #if defined REDIRECT_HTTP || defined REDIRECT_HTTPS
-static void redirect(int fd, char *req_buff, size_t buff_len) {
+__attribute__((nonnull)) static void redirect(int fd, char *req_buff,
+                                              size_t buff_len) {
   const char response_redirect[] =
       "HTTP/1.1 301 Moved Permanently\r\nConnection: Close\r\nLocation: "
 #ifdef REDIRECT_HTTP
@@ -250,7 +251,8 @@ end:
  * use case curl:
  * https_proxy="http://127.0.0.1:8888" curl https://host.net
  */
-static void proxy_connect(int fd, const char *host, unsigned short port) {
+__attribute__((nonnull)) static void proxy_connect(int fd, const char *host,
+                                                   unsigned short port) {
 #ifdef DEBUG
   fprintf(stderr, "proxy_connect mode\n");
 #endif

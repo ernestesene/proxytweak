@@ -45,11 +45,12 @@ short parse_connect_request(char *req, char *host, unsigned short *port) {
 }
 
 /* TODO: possible buffer overflow here */
-static short parse_request(char *const _request, size_t request_len,
-                           struct request *req
+__attribute__((nonnull)) static short parse_request(char *const _request,
+                                                    size_t request_len,
+                                                    struct request *req
 #ifndef REDIRECT_HTTP
-                           ,
-                           bool https_mode
+                                                    ,
+                                                    bool https_mode
 #endif
 ) {
 
