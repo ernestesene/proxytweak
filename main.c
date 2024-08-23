@@ -72,6 +72,11 @@ int main(void) {
     struct sockaddr_in client_addr = {0};
     socklen_t addr_len = sizeof(client_addr);
     newfd = (int *)malloc(sizeof(*newfd));
+    if (newfd == NULL) {
+      perror("malloc newfd");
+      sleep(5);
+      continue;
+    }
     *newfd = accept(sockfd, (struct sockaddr *)&client_addr, &addr_len);
     if (*newfd == -1) {
       perror("Accept Error");
