@@ -29,11 +29,11 @@ extern const char *const req_hdr_fmt_2;
 
 extern const char *const req_hdr_fmt_connect;
 /* allowed HTTP methods for peers */
-#define PEER_METHOD_GET 0b00000001
-#define PEER_METHOD_POST 0b00000010
-#define PEER_METHOD_HEAD 0b00000100
-#define PEER_METHOD_CONNECT 0b10000000
-#define PEER_METHOD_ALL 0b11111111
+#define PEER_METHOD_GET 0x01
+#define PEER_METHOD_POST 0x02
+#define PEER_METHOD_HEAD 0x04
+#define PEER_METHOD_CONNECT 0x08
+#define PEER_METHOD_ALL 0xff
 
 /* peer information
  * peer could be an HTTP proxy or reverse proxy.

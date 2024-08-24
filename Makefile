@@ -3,7 +3,7 @@ CC ?=cc
 
 L_SSL ?=-lssl -lcrypto
 LIBS ?=-lpthread $(L_SSL)
-DEBUG ?=-DDEBUG -ggdb -Og -fanalyzer
+DEBUG ?=-DDEBUG -ggdb -Og -fanalyzer -Wpedantic
 CFLAGS ?=-c -Wall -Wextra $(DEBUG)
 LDFLAGS ?=$(LIBS)
 
@@ -18,7 +18,7 @@ $(PROGRAM): $(OBJS)
 	$(CC) -o $@ $(CFLAGS) $<
 
 tweak.h: tweak_in.h
-	$(CC) -E -dD $^ | grep -Ev "built-in|define _|linux|unix" > tweak.h
+	$(CC) -E -dD $^ | grep -Ev "# |#define _|linux|unix" > tweak.h
 
 tags: *.c
 	ctags -R --kinds-C=+pxD *.h *.c
