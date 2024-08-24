@@ -16,20 +16,21 @@
 #define HOST_MAX 64
 
 /* TODO change bad_request to match HTTP RESPONSE */
-extern short parse_connect_request(char *req, char *host, unsigned short *port)
-    __attribute__((nonnull));
+extern short parse_connect_request (char *req, char *host,
+                                    unsigned short *port)
+    __attribute__ ((nonnull));
 
 /* returns len of out or -1 on error */
-extern ssize_t transform_req(char *const in, const size_t in_len,
-                             char *const out, const size_t out_max,
-                             const char **const payload,
-                             size_t *const payload_len
+extern ssize_t transform_req (char *const in, const size_t in_len,
+                              char *const out, const size_t out_max,
+                              const char **const payload,
+                              size_t *const payload_len
 #ifndef REDIRECT_HTTP
-                             ,
-                             bool https_mode
+                              ,
+                              bool https_mode
 #endif
-                             ) __attribute__((nonnull));
+                              ) __attribute__ ((nonnull));
 
 /* returns pointer to url without protocol */
-char *http_bare_url(char *request) __attribute__((nonnull));
+char *http_bare_url (char *request) __attribute__ ((nonnull));
 #endif /* ifndef HTTP_HELPER_H */
