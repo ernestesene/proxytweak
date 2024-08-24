@@ -12,16 +12,17 @@ enum ssl_method
 static SSL_CTX *ctx_client = NULL;
 static SSL_CTX *ctx_server = NULL;
 
-static int ssl_configure_context (SSL_CTX *ctx, enum ssl_method method)
+static int ssl_configure_context (SSL_CTX *restrict const ctx,
+                                  enum ssl_method const method)
     __attribute__ ((nonnull));
 void
-tls_shutdown (SSL *ssl)
+tls_shutdown (SSL *const ssl)
 {
   SSL_shutdown (ssl);
   SSL_free (ssl);
 }
 __attribute__ ((nonnull)) static void
-tls_print_error (SSL *ssl, int err)
+tls_print_error (SSL *restrict const ssl, int const err)
 {
   ERR_print_errors_fp (stderr);
   if (SSL_ERROR_SYSCALL == SSL_get_error (ssl, err))
@@ -29,7 +30,7 @@ tls_print_error (SSL *ssl, int err)
 }
 
 static SSL_CTX *
-ssl_create_context (enum ssl_method method)
+ssl_create_context (enum ssl_method const method)
 {
   const SSL_METHOD *_method = NULL;
   SSL_CTX *ctx = NULL;
@@ -62,7 +63,8 @@ init_tls_helper ()
   return 1;
 }
 static int
-ssl_configure_context (SSL_CTX *ctx, enum ssl_method method)
+ssl_configure_context (SSL_CTX *restrict const ctx,
+                       enum ssl_method const method)
 {
   /* Set the key and cert to use */
   if (method == server_method)
@@ -101,7 +103,7 @@ ssl_configure_context (SSL_CTX *ctx, enum ssl_method method)
 }
 
 SSL *
-tls_accept (int fd)
+tls_accept (int const fd)
 {
   int err = -1;
   SSL *ssl_local = NULL;
@@ -128,7 +130,7 @@ ret:
 
 #if (PEER_USE_TLS)
 SSL *
-tls_connect (int fd_remote)
+tls_connect (int const fd_remote)
 {
   SSL *ssl_remote = NULL;
   int err = -1;

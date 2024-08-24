@@ -13,7 +13,7 @@
 #include "tweak.h"
 
 __attribute__ ((nonnull)) void *
-thread_function (void *arg)
+thread_function (void *restrict const arg)
 {
   int *newfd = NULL;
   int err = 0;

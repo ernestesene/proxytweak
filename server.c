@@ -20,7 +20,7 @@ static const char response_ok[] = "HTTP/1.1 200 OK\r\n\r\n";
 
 #if defined REDIRECT_HTTP || defined REDIRECT_HTTPS
 __attribute__ ((nonnull)) static void
-redirect (int fd, char *req_buff, size_t buff_len)
+redirect (int const fd, char *restrict const req_buff, size_t const buff_len)
 {
   const char response_redirect[]
       = "HTTP/1.1 301 Moved Permanently\r\nConnection: Close\r\nLocation: "
@@ -68,11 +68,11 @@ ret:
 
 #if (PEER_METHODS != PEER_METHOD_CONNECT)
 static void
-proxy (int fd
+proxy (int const fd
 #ifndef REDIRECT_HTTP
        ,
        /* https_mode: use macro HTTPS_MODE (CONNECT request) or HTTP_MODE */
-       bool https_mode
+       bool const https_mode
 #endif
 )
 {
@@ -288,7 +288,8 @@ end:
  * https_proxy="http://127.0.0.1:8888" curl https://host.net
  */
 __attribute__ ((nonnull)) static void
-proxy_connect (int fd, const char *host, unsigned short port)
+proxy_connect (int const fd, const char *restrict const host,
+               unsigned short const port)
 {
 #ifdef DEBUG
   fprintf (stderr, "proxy_connect mode\n");
@@ -359,7 +360,7 @@ proxy_end:
 #endif
 
 int
-server (int fd)
+server (int const fd)
 {
   char request[REQUEST_MAX] = { 0 };
 

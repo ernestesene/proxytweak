@@ -24,7 +24,8 @@ struct request
 
 /* TODO: possible buffer overflow here */
 short
-parse_connect_request (char *req, char *host, unsigned short *port)
+parse_connect_request (char *restrict const req, char *restrict const host,
+                       unsigned short *restrict const port)
 {
   char *tmp, *saveptr;
   unsigned int port_;
@@ -55,10 +56,11 @@ parse_connect_request (char *req, char *host, unsigned short *port)
 
 /* TODO: possible buffer overflow here */
 __attribute__ ((nonnull)) static short
-parse_request (char *const _request, size_t request_len, struct request *req
+parse_request (char *restrict const _request, const size_t request_len,
+               struct request *restrict const req
 #ifndef REDIRECT_HTTP
                ,
-               bool https_mode
+               const bool https_mode
 #endif
 )
 {
@@ -137,12 +139,13 @@ parse_request (char *const _request, size_t request_len, struct request *req
   return 0;
 }
 ssize_t
-transform_req (char *const in, const size_t in_len, char *const out,
-               const size_t out_max, const char **const payload,
-               size_t *const payload_len
+transform_req (char *restrict const in, const size_t in_len,
+               char *restrict const out, const size_t out_max,
+               const char **restrict const payload,
+               size_t *restrict const payload_len
 #ifndef REDIRECT_HTTP
                ,
-               bool https_mode
+               const bool https_mode
 #endif
 )
 {
@@ -238,7 +241,7 @@ ret:
 }
 
 char *
-http_bare_url (char *request)
+http_bare_url (char *restrict const request)
 {
   char *buff = strstr (request, PROTO_SEPERATOR);
   if (buff == NULL)

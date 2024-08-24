@@ -8,7 +8,7 @@
 
 /* return 0 on success */
 extern int init_tls_helper ();
-extern void tls_shutdown (SSL *ssl) __attribute__ ((nonnull));
+extern void tls_shutdown (SSL *__restrict const ssl) __attribute__ ((nonnull));
 
 /**
  * tls_accept() - set up server TLS and do handshake
@@ -17,9 +17,9 @@ extern void tls_shutdown (SSL *ssl) __attribute__ ((nonnull));
  *
  * caller must call tls_shutdown() after use
  */
-extern SSL *tls_accept (int fd);
+extern SSL *tls_accept (int const fd);
 #if (PEER_USE_TLS)
-extern SSL *tls_connect (int fd_remote);
+extern SSL *tls_connect (int const fd_remote);
 #endif
 
 #endif /* ifndef TLS_HELPER_H */

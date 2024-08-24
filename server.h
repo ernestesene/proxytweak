@@ -1,1 +1,1 @@
-int server (int fd);
+int server (int const fd);
