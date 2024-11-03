@@ -76,8 +76,8 @@ proxy (int const fd
 #endif
 )
 {
-  /* Use macro WRITE and READ to read/write to remote peer
-   * TODO: better error message for WRITE and READ */
+  /* Use macro WRITE_REMOTE and READ_REMOTE to read/write to remote peer
+   * TODO: better error message for WRITE_REMOTE and READ_REMOTE */
   int err = -1;
   char buffer[REQUEST_MAX] = { 0 };
   int buff_len = -1;
@@ -90,13 +90,13 @@ proxy (int const fd
 
 #if (PEER_USE_TLS)
   SSL *ssl_remote = NULL;
-#define WRITE SSL_write
-#define READ SSL_read
+#define WRITE_REMOTE SSL_write
+#define READ_REMOTE SSL_read
 #else
 
 #define ssl_remote fd_remote
-#define WRITE write
-#define READ read
+#define WRITE_REMOTE write
+#define READ_REMOTE read
 #endif
   // Connect to remote proxy
   fd_remote = connect_remote_server ();
@@ -200,10 +200,10 @@ proxy (int const fd
                            payload, payload_len);
 #endif
                   // send to remote
-                  err = WRITE (ssl_remote, request, req_len);
+                  err = WRITE_REMOTE (ssl_remote, request, req_len);
                   if (err < 1)
                     {
-                      perror ("WRITE error");
+                      perror ("WRITE_REMOTE error");
                       goto end;
                     }
                   else if (err < (int)req_len)
@@ -214,10 +214,10 @@ proxy (int const fd
 
                   if (payload_len > 0 && payload)
                     {
-                      err = WRITE (ssl_remote, payload, payload_len);
+                      err = WRITE_REMOTE (ssl_remote, payload, payload_len);
                       if (err < (int)payload_len)
                         {
-                          perror ("WRITE error");
+                          perror ("WRITE_REMOTE error");
                           goto end;
                         }
                     }
@@ -234,10 +234,10 @@ proxy (int const fd
                   goto end;
                 }
               // send to remote
-              WRITE (ssl_remote, buffer, buff_len);
+              WRITE_REMOTE (ssl_remote, buffer, buff_len);
               if (err < 1)
                 {
-                  perror ("WRITE error");
+                  perror ("WRITE_REMOTE error");
                   goto end;
                 }
             }
@@ -246,10 +246,10 @@ proxy (int const fd
         {
           transform_next_local_read = true;
           // read remote via READ
-          buff_len = READ (ssl_remote, buffer, sizeof (buffer));
+          buff_len = READ_REMOTE (ssl_remote, buffer, sizeof (buffer));
           if (buff_len < 1)
             {
-              perror ("read:remote");
+              perror ("READ_REMOTE error");
               goto end;
             }
           // write local via SSL_write
