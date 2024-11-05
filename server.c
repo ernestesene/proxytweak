@@ -161,15 +161,16 @@ proxy (int const fd
         }
       if (pfd[FD_LOCAL].revents & POLLIN)
         {
+          // read from local fd
+          buff_len = READ_LOCAL (ssl_local, buffer, sizeof (buffer) - 1);
+          if (buff_len < 1)
+            {
+              ERR_print_errors_fp (stderr);
+              goto end;
+            }
+
           if (transform_next_local_read)
             {
-              // read request from local fd
-              buff_len = READ_LOCAL (ssl_local, buffer, sizeof (buffer) - 1);
-              if (buff_len < 1)
-                {
-                  ERR_print_errors_fp (stderr);
-                  goto end;
-                }
               *(buffer + buff_len) = '\0';
 #ifdef DEBUG
               printf ("REQUEST_MAX is: %zubytes\n", sizeof (buffer));
@@ -226,13 +227,6 @@ proxy (int const fd
             }
           else
             {
-              // continue reading local fd
-              buff_len = READ_LOCAL (ssl_local, buffer, sizeof (buffer));
-              if (buff_len < 1)
-                {
-                  ERR_print_errors_fp (stderr);
-                  goto end;
-                }
               // send to remote
               WRITE_REMOTE (ssl_remote, buffer, buff_len);
               if (err < 1)
