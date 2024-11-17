@@ -381,6 +381,13 @@ server (int const fd)
       if (err == 0)
         {
           request_len = read (fd, (void *)request, sizeof (request));
+          if (request_len < 1)
+            {
+#ifdef DEBUG
+              perror ("Proxy read request");
+#endif
+              break;
+            }
 #ifdef DEBUG
           printf ("Request is \n%s\n", request);
 #endif
