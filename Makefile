@@ -26,7 +26,7 @@ tags: *.c
 TAGS:
 	ctags -R  --kinds-C=m   -f TAGS /usr/include/sys /usr/include/*.h /usr/include/bits /usr/include/asm /usr/include/linux
 
-make.d: *.h tweak.h
+make.d: *.c *.h tweak.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) *.c -MM > $@
 
 include make.d
