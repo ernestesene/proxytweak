@@ -1,0 +1,13 @@
+Simple man-in-the-middle proxy for passing through firewall.
+
+See tweak_in.h on how to configure the program
+
+On Linux
+Compile with
+	$make
+
+Run with
+	$./proxytweak
+
+NOTE: selfsign.crt and selfsign.key must be present in working directory
+
