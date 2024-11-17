@@ -80,6 +80,7 @@ main (void)
       exit (EXIT_FAILURE);
     }
 
+  fprintf (stderr, "Listening on port %d\n", LISTEN_PORT);
   while (1)
     {
       struct sockaddr_in client_addr = { 0 };
