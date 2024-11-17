@@ -1,9 +1,18 @@
 #include "server.h"
 
+#ifdef __WIN32__
+#include <winsock2.h>
+#define poll WSAPoll
+#define read read_winsock
+#define write write_winsock
+
+#else
 #include <poll.h>
+#include <sys/socket.h>
+#endif
+
 #include <stdio.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <unistd.h>
 
 #include "http_helper.h"

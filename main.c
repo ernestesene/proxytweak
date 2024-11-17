@@ -1,12 +1,19 @@
-#include <arpa/inet.h>
-#include <netdb.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#ifdef __WIN32__
+#include <winsock2.h>
+typedef int socklen_t;
+#else
+/* unix */
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#endif
 
 #include "server.h"
 #include "tls_helper.h"
@@ -48,13 +55,24 @@ main (void)
 
   signal (SIGPIPE, SIG_IGN);
 
+#ifdef __WIN32__
+  WSADATA wsaData;
+  err = WSAStartup (MAKEWORD (2, 2), &wsaData);
+  if (0 != err)
+    {
+      fprintf (stderr, "WSAStartup error: %d\n", err);
+      return 1;
+    }
+#endif
+
   sockfd = socket (PF_INET, SOCK_STREAM, 0);
   if (sockfd == -1)
     {
       perror ("Socket create error");
       exit (EXIT_FAILURE);
     }
-  if (setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof (yes)) == -1)
+  if (setsockopt (sockfd, SOL_SOCKET, SO_REUSEADDR, (char *)&yes, sizeof (yes))
+      == -1)
     {
       perror ("Set sock opt SO_REUSEADDR Error");
       close (sockfd);

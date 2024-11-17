@@ -5,3 +5,7 @@ tags
 TAGS
 make.d
 tweak.h
+*.exe
+.clang_complete
+compile_commands.json
+built_in_defs.hpp

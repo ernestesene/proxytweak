@@ -1,12 +1,14 @@
+#ifdef __WIN32__
+#include <winsock2.h>
+#else
 #include <arpa/inet.h>
-#include <stdio.h>
+#include <netdb.h>
 #include <sys/socket.h>
+#endif
+
+#include <stdio.h>
 
 #include "tweak.h"
-
-/* TODO: change to getaddrinfo(3) */
-#include <netdb.h>
-extern int h_errno;
 
 int
 connect_remote_server ()
@@ -36,3 +38,17 @@ connect_remote_server ()
     }
   return fd;
 }
+
+#ifdef __WIN32__
+__attribute__ ((nonnull)) int
+write_winsock (int fd, const void *buf, unsigned int count)
+{
+  return send (fd, buf, count, 0);
+}
+
+__attribute__ ((nonnull)) int
+read_winsock (int fd, void *buf, unsigned int count)
+{
+  return recv (fd, buf, count, 0);
+}
+#endif

@@ -11,3 +11,15 @@ Run with
 
 NOTE: selfsign.crt and selfsign.key must be present in working directory
 
+
+On Mingw (Windows)
+Compile with
+	$CC=x86_64-w64-mingw32-gcc make
+
+If openssl library is not installed in mingw toolchain path, you have to include path to where openssl for mingw is installed
+	$CC=x86_64-w64-mingw32-gcc CFLAGS="-I /path/to/openssl/include" LDFLAGS="-L /path/to/openssl/lib" make
+
+Run:
+To run the program on wine/windows
+copy /usr/x86_64-w64-mingw32/bin/libwinpthread-1.dll,  selfsign.crt and
+selfsign.key to directory of program before running
