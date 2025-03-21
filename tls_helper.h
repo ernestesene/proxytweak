@@ -22,4 +22,6 @@ extern SSL *tls_accept (int const fd);
 extern SSL *tls_connect (int const fd_remote);
 #endif
 
+extern void tls_print_error (SSL *__restrict const ssl, int const err)
+    __attribute__ ((nonnull));
 #endif /* ifndef TLS_HELPER_H */

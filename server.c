@@ -20,8 +20,8 @@
 #include "tls_helper.h"
 #include "tweak.h"
 
-#define FD_REMOTE 0
-#define FD_LOCAL 1
+#define FD_LOCAL 0
+#define FD_REMOTE 1
 #define POLLFDS 2
 
 static const char response_err[] = "HTTP/1.1 400 Bad request\r\n\r\n";
@@ -69,6 +69,112 @@ ret:
   close (fd);
 }
 #endif
+
+typedef ssize_t (*WRITE_fn) (long fd, const void *buf, size_t n);
+typedef int (*READ_fn) (long fd, void *buf, int n);
+struct ssl_obj
+{
+  SSL *ssl_local;
+  SSL *ssl_remote;
+};
+
+/*
+ * bridges two file descriptors in pfd
+ * will only return on error without closing fd in pfd
+ *
+ * pfd must be an array of size two. Eg. struct pollfd pfd[2]
+ * and filled with two different fd and pfd->events equals POLLIN
+ * see sanity checks inside this function for more insight
+ *
+ * ssl_objs can be null if not dealing with ssl.
+ * 	It's members must default to NULL (zero).
+ */
+__attribute__ ((nonnull (1, 2))) static void
+bridge_fds (struct pollfd const pfd[], void *const buffer, const size_t buflen,
+            struct ssl_obj *ssl_objs)
+{
+  // TODO these should be macros
+  // #define WRITE_L(buf,len) WRITE_LOCAL(ssl_local, buf, len)
+  WRITE_fn WRITE_LOCAL = write, WRITE_REMOTE = write;
+  READ_fn READ_LOCAL = read, READ_REMOTE = read;
+
+  /* sanity checks */
+  if (POLLIN != pfd[0].events || POLLIN != pfd[1].events
+      || pfd[0].fd == pfd[1].fd || 32 > buflen)
+    {
+      fprintf (stderr, "%s:%d sanity checks failed\n", __FILE__, __LINE__);
+      return;
+    }
+
+  SSL *ssl_local = (SSL *)(long)pfd[FD_LOCAL].fd;
+  SSL *ssl_remote = (SSL *)(long)pfd[FD_REMOTE].fd;
+  if (NULL != ssl_objs)
+    {
+      void *tmp = ssl_objs->ssl_local;
+      if (tmp && (tmp != (void *)(long)pfd[FD_LOCAL].fd))
+        {
+          ssl_local = tmp;
+          READ_LOCAL = SSL_read;
+          WRITE_LOCAL = SSL_write;
+        }
+      tmp = ssl_objs->ssl_remote;
+      if (tmp && (tmp != (void *)(long)pfd[FD_REMOTE].fd))
+        {
+          ssl_remote = tmp;
+          READ_REMOTE = SSL_read;
+          WRITE_REMOTE = SSL_write;
+        }
+    }
+
+    // sanity check
+#ifndef NDEBUG
+  if (ssl_remote == ssl_local)
+    fprintf (stderr, "ssl_romote and ssl_local is same\n");
+#endif
+
+  do
+    {
+      if (poll ((struct pollfd *)pfd, POLLFDS, -1) < 1)
+        {
+          perror ("poll failed");
+          break;
+        }
+      if (pfd[FD_LOCAL].revents & POLLIN)
+        {
+          const ssize_t len = READ_LOCAL (ssl_local, buffer, buflen);
+          if (len < 1)
+            {
+              if (&SSL_read == READ_LOCAL)
+                tls_print_error (ssl_local, len);
+              else
+                perror ("can't read polled fd");
+              break;
+            }
+
+          if (WRITE_REMOTE (ssl_remote, buffer, len) != len)
+            {
+              perror ("can't write fd");
+              break;
+            }
+        }
+      if (pfd[FD_REMOTE].revents & POLLIN)
+        {
+          const ssize_t len = READ_REMOTE (ssl_remote, buffer, buflen);
+          if (len < 1)
+            {
+              perror ("can't read polled fd");
+              break;
+            }
+
+          if (WRITE_LOCAL (ssl_local, buffer, len) != len)
+            {
+              perror ("can't write fd");
+              break;
+            }
+        }
+    }
+  while (1);
+}
 
 #ifndef REDIRECT_HTTP
 #define HTTPS_MODE true
@@ -128,8 +234,8 @@ proxy (int const fd
 
 /* if https only */
 #ifndef REDIRECT_HTTP
-  int (*WRITE_LOCAL) (SSL * fd, const void *buf, int n) = SSL_write;
-  int (*READ_LOCAL) (SSL * fd, void *buf, int n) = SSL_read;
+  WRITE_fn WRITE_LOCAL = SSL_write;
+  READ_fn READ_LOCAL = SSL_read;
 
   if (https_mode)
     {
@@ -247,7 +353,6 @@ proxy (int const fd
         }
       if (pfd[FD_REMOTE].revents & POLLIN)
         {
-          transform_next_local_read = true;
           // read remote via READ
           buff_len = READ_REMOTE (ssl_remote, buffer, sizeof (buffer));
           if (buff_len < 1)
@@ -255,10 +360,32 @@ proxy (int const fd
               perror ("READ_REMOTE error");
               goto end;
             }
+
           // write local via SSL_write
           err = WRITE_LOCAL (ssl_local, buffer, buff_len);
           if (err != (int)buff_len)
             goto end;
+
+          /* Process HTTP response header from remote
+           * Useful for detecting web socket or errors from remote
+           *
+           * only on "first remote read since last local read"
+           */
+          if (!transform_next_local_read)
+            {
+              transform_next_local_read = true;
+              if (0 == strncmp (buffer, "HTTP/1.1 101 ", 13))
+                {
+                  // web socket detected
+#ifndef NDEBUG
+                  write (STDERR_FILENO, buffer, buff_len);
+                  fprintf (stderr, "\nWeb socket mode activated\n");
+#endif
+                  struct ssl_obj sslobj = { ssl_local, ssl_remote };
+                  bridge_fds (pfd, buffer, sizeof (buffer), &sslobj);
+                  goto end;
+                }
+            }
         }
     }
   while (1);
@@ -322,40 +449,13 @@ proxy_connect (int const fd, const char *restrict const host,
 
   // bridge local fd with remote
   struct pollfd pfd[POLLFDS] = { 0 };
-  pfd[0].fd = fd_remote;
-  pfd[0].events = POLLIN;
-  pfd[1].fd = fd;
-  pfd[1].events = POLLIN;
+  pfd[FD_REMOTE].fd = fd_remote;
+  pfd[FD_REMOTE].events = POLLIN;
+  pfd[FD_LOCAL].fd = fd;
+  pfd[FD_LOCAL].events = POLLIN;
 
-  do
-    {
-      if (poll (pfd, POLLFDS, -1) < 1)
-        {
-          perror ("poll failed");
-          break;
-        }
-      bool i = 0;
-      do
-        {
-          if (pfd[i].revents & POLLIN)
-            {
-              len = read (pfd[i].fd, buffer, sizeof (buffer));
-              if (len < 1)
-                {
-                  perror ("can't read polled fd");
-                  goto proxy_end;
-                }
-              if (len != write (pfd[!i].fd, buffer, len))
-                {
-                  perror ("can't write fd");
-                  goto proxy_end;
-                }
-            }
-          i = !i;
-        }
-      while (i);
-    }
-  while (1);
+  bridge_fds (pfd, buffer, sizeof (buffer), NULL);
+
 proxy_end:
   close (fd_remote);
   close (fd);

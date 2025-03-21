@@ -21,7 +21,7 @@ tls_shutdown (SSL *const ssl)
   SSL_shutdown (ssl);
   SSL_free (ssl);
 }
-__attribute__ ((nonnull)) static void
+void
 tls_print_error (SSL *restrict const ssl, int const err)
 {
   ERR_print_errors_fp (stderr);
