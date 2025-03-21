@@ -1,8 +1,14 @@
 PROGRAM = proxytweak
 CC ?=cc
 
+ifdef NDEBUG
+	DEBUG := -DNDEBUG -O3 -flto
+	LDFLAGS += -O3 -flto -s
+else
+	DEBUG ?=-DDEBUG -ggdb -Og -fanalyzer -Wpedantic
+endif
+
 LIBS ?=-lssl -lcrypto -lpthread
-DEBUG ?=-DDEBUG -ggdb -Og -fanalyzer -Wpedantic
 
 ifneq (,$(findstring mingw,$(CC)))
 LIBS += -lws2_32
