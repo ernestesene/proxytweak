@@ -5,7 +5,7 @@ ifdef NDEBUG
 	DEBUG := -DNDEBUG -O3 -flto
 	LDFLAGS += -O3 -flto -s
 else
-	DEBUG ?=-DDEBUG -ggdb -Og -fanalyzer -Wpedantic
+	DEBUG ?=-ggdb -Og -fanalyzer -Wpedantic
 endif
 
 LIBS ?=-lssl -lcrypto -lpthread

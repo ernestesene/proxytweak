@@ -56,7 +56,7 @@ redirect (int const fd, char *restrict const req_buff, size_t const buff_len)
       perror ("redirect generator");
       goto err;
     }
-#ifdef DEBUG
+#ifndef NDEBUG
   fprintf (stderr, "http redirect ===> \n%s\n", buff);
 #endif
   /* redirect to https */
@@ -296,7 +296,7 @@ proxy (int const fd
           if (transform_next_local_read)
             {
               *(buffer + buff_len) = '\0';
-#ifdef DEBUG
+#ifndef NDEBUG
               printf ("REQUEST_MAX is: %zubytes\n", sizeof (buffer));
               printf ("Request length is: %dbytes\n", buff_len);
               printf ("Request is \n\n%s\n", buffer);
@@ -317,7 +317,7 @@ proxy (int const fd
                 }
               else
                 {
-#ifdef DEBUG
+#ifndef NDEBUG
                   fprintf (stderr, "Remote request ==>\n%s\nreq_len: %d\n",
                            request, req_len);
                   fprintf (stderr, "payload:\n%s\npayload_length: %zu\n",
@@ -430,7 +430,7 @@ __attribute__ ((nonnull)) static void
 proxy_connect (int const fd, const char *restrict const host,
                unsigned short const port)
 {
-#ifdef DEBUG
+#ifndef NDEBUG
   fprintf (stderr, "proxy_connect mode\n");
 #endif
   int fd_remote = -1;
@@ -447,7 +447,7 @@ proxy_connect (int const fd, const char *restrict const host,
   char buffer[REQUEST_MAX] = { 0 };
   int len = 0;
   len = snprintf (buffer, sizeof (buffer), req_hdr_fmt_connect, host, port);
-#ifdef DEBUG
+#ifndef NDEBUG
   fprintf (stderr, "Custom connect resquest is \n%s\n", buffer);
 #endif
   if (1 > write (fd_remote, buffer, len))
@@ -487,7 +487,7 @@ server (int const fd)
       request_len = recv (fd, (void *)request, sizeof (connect), MSG_PEEK);
       if (request_len < 1)
         {
-#ifdef DEBUG
+#ifndef NDEBUG
           perror ("Server read error, or connection closed");
 #endif
           break;
@@ -501,12 +501,12 @@ server (int const fd)
           request_len = read (fd, (void *)request, sizeof (request));
           if (request_len < 1)
             {
-#ifdef DEBUG
+#ifndef NDEBUG
               perror ("Proxy read request");
 #endif
               break;
             }
-#ifdef DEBUG
+#ifndef NDEBUG
           printf ("Request is \n%s\n", request);
 #endif
 
