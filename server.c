@@ -70,8 +70,8 @@ ret:
 }
 #endif
 
-typedef ssize_t (*WRITE_fn) (long fd, const void *buf, size_t n);
-typedef int (*READ_fn) (long fd, void *buf, int n);
+typedef int (*WRITE_fn) (SSL *fd, const void *buf, int n);
+typedef int (*READ_fn) (SSL *ssl, void *buf, int n);
 struct ssl_obj
 {
   SSL *ssl_local;
@@ -93,10 +93,23 @@ __attribute__ ((nonnull (1, 2))) static void
 bridge_fds (struct pollfd const pfd[], void *const buffer, const size_t buflen,
             struct ssl_obj *ssl_objs)
 {
-  // TODO these should be macros
-  // #define WRITE_L(buf,len) WRITE_LOCAL(ssl_local, buf, len)
+  /* Macro READ_L/READ_R, WRITE_L/WRITE_R read/write to local/remote peers
+   * using READ_LOCAL/READ_REMOTE, WRITE_LOCAL/WRITE_REMOTE function pointers
+   * variable ssl_local/ssl_remote must be locally define as (SSL *) and should
+   * be a file descriptor for read/write or pointer to SSL * object for
+   * SSL_read/SSL_write
+   * TODO: better error message for WRITE_REMOTE and READ_REMOTE
+   * TODO: WRITE_fn should be global variable (only threaded not
+   * multiplexed-io)*/
+#define WRITE_L(buf, len) WRITE_LOCAL (ssl_local, (buf), (len))
+#define WRITE_R(buf, len) WRITE_REMOTE (ssl_remote, (buf), (len))
+#define READ_L(buf, len) READ_LOCAL (ssl_local, (buf), (len))
+#define READ_R(buf, len) READ_REMOTE (ssl_remote, (buf), (len))
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
   WRITE_fn WRITE_LOCAL = write, WRITE_REMOTE = write;
   READ_fn READ_LOCAL = read, READ_REMOTE = read;
+#pragma GCC diagnostic pop
 
   /* sanity checks */
   if (POLLIN != pfd[0].events || POLLIN != pfd[1].events
@@ -141,7 +154,7 @@ bridge_fds (struct pollfd const pfd[], void *const buffer, const size_t buflen,
         }
       if (pfd[FD_LOCAL].revents & POLLIN)
         {
-          const ssize_t len = READ_LOCAL (ssl_local, buffer, buflen);
+          const ssize_t len = READ_L (buffer, buflen);
           if (len < 1)
             {
               if (&SSL_read == READ_LOCAL)
@@ -151,7 +164,7 @@ bridge_fds (struct pollfd const pfd[], void *const buffer, const size_t buflen,
               break;
             }
 
-          if (WRITE_REMOTE (ssl_remote, buffer, len) != len)
+          if (WRITE_R (buffer, len) != len)
             {
               perror ("can't write fd");
               break;
@@ -159,14 +172,14 @@ bridge_fds (struct pollfd const pfd[], void *const buffer, const size_t buflen,
         }
       if (pfd[FD_REMOTE].revents & POLLIN)
         {
-          const ssize_t len = READ_REMOTE (ssl_remote, buffer, buflen);
+          const ssize_t len = READ_R (buffer, buflen);
           if (len < 1)
             {
               perror ("can't read polled fd");
               break;
             }
 
-          if (WRITE_LOCAL (ssl_local, buffer, len) != len)
+          if (WRITE_L (buffer, len) != len)
             {
               perror ("can't write fd");
               break;
@@ -191,8 +204,6 @@ proxy (int const fd
 #endif
 )
 {
-  /* Use macro WRITE_REMOTE and READ_REMOTE to read/write to remote peer
-   * TODO: better error message for WRITE_REMOTE and READ_REMOTE */
   int err = -1;
   char buffer[REQUEST_MAX] = { 0 };
   int buff_len = -1;
@@ -277,7 +288,7 @@ proxy (int const fd
       if (pfd[FD_LOCAL].revents & POLLIN)
         {
           // read from local fd
-          buff_len = READ_LOCAL (ssl_local, buffer, sizeof (buffer) - 1);
+          buff_len = READ_L (buffer, sizeof (buffer) - 1);
           if (buff_len < 1)
             {
               ERR_print_errors_fp (stderr);
@@ -302,8 +313,7 @@ proxy (int const fd
               );
               if (req_len < 1)
                 {
-                  err = WRITE_LOCAL (ssl_local, response_err,
-                                     sizeof (response_err) - 1);
+                  err = WRITE_L (response_err, sizeof (response_err) - 1);
                   if (err < 1)
                     goto end;
                 }
@@ -316,7 +326,7 @@ proxy (int const fd
                            payload, payload_len);
 #endif
                   // send to remote
-                  err = WRITE_REMOTE (ssl_remote, request, req_len);
+                  err = WRITE_R (request, req_len);
                   if (err < 1)
                     {
                       perror ("WRITE_REMOTE error");
@@ -330,7 +340,7 @@ proxy (int const fd
 
                   if (payload_len > 0 && payload)
                     {
-                      err = WRITE_REMOTE (ssl_remote, payload, payload_len);
+                      err = WRITE_R (payload, payload_len);
                       if (err < (int)payload_len)
                         {
                           perror ("WRITE_REMOTE error");
@@ -343,7 +353,7 @@ proxy (int const fd
           else
             {
               // send to remote
-              WRITE_REMOTE (ssl_remote, buffer, buff_len);
+              WRITE_R (buffer, buff_len);
               if (err < 1)
                 {
                   perror ("WRITE_REMOTE error");
@@ -354,7 +364,7 @@ proxy (int const fd
       if (pfd[FD_REMOTE].revents & POLLIN)
         {
           // read remote via READ
-          buff_len = READ_REMOTE (ssl_remote, buffer, sizeof (buffer));
+          buff_len = READ_R (buffer, sizeof (buffer));
           if (buff_len < 1)
             {
               perror ("READ_REMOTE error");
@@ -362,7 +372,7 @@ proxy (int const fd
             }
 
           // write local via SSL_write
-          err = WRITE_LOCAL (ssl_local, buffer, buff_len);
+          err = WRITE_L (buffer, buff_len);
           if (err != (int)buff_len)
             goto end;
 
