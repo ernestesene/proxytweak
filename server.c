@@ -214,8 +214,16 @@ proxy (int const fd
   int fd_remote = -1;
   SSL *ssl_local = NULL;
 
+  // Connect to remote proxy
+  fd_remote = connect_remote_server ();
+  if (fd_remote < 0)
+    goto end2;
+
 #if (PEER_USE_TLS)
-  SSL *ssl_remote = NULL;
+  // remote SSL connect
+  SSL *ssl_remote = tls_connect (fd_remote);
+  if (!ssl_remote)
+    goto end;
 #define WRITE_REMOTE SSL_write
 #define READ_REMOTE SSL_read
 #else
@@ -223,16 +231,6 @@ proxy (int const fd
 #define ssl_remote fd_remote
 #define WRITE_REMOTE write
 #define READ_REMOTE read
-#endif
-  // Connect to remote proxy
-  fd_remote = connect_remote_server ();
-  if (fd_remote < 0)
-    goto end;
-#if (PEER_USE_TLS)
-  // remote SSL connect
-  ssl_remote = tls_connect (fd_remote);
-  if (!ssl_remote)
-    goto end;
 #endif
 
 #define LOCAL_HANSHAKE()                                                      \
@@ -406,7 +404,6 @@ end:
 #endif
       ssl_local)
     tls_shutdown (ssl_local);
-  close (fd);
 #if (PEER_USE_TLS)
   if (ssl_remote)
     tls_shutdown (ssl_remote);
@@ -415,6 +412,8 @@ end:
     {
       close (fd_remote);
     }
+end2:
+  close (fd);
   return;
 }
 #endif /* (PEER_METHODS != PEER_METHOD_CONNECT) */
