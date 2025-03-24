@@ -326,7 +326,8 @@ proxy (int const fd,
                   write (STDERR_FILENO, buffer, buff_len);
                   fprintf (stderr, "\nWeb socket mode activated\n");
 #endif
-                  struct ssl_obj sslobj = { ssl_local, ssl_remote };
+                  struct ssl_obj sslobj
+                      = { ssl_local, (SSL *)(long)ssl_remote };
                   bridge_fds (pfd, buffer, sizeof (buffer), &sslobj);
                   goto end;
                 }
