@@ -150,13 +150,12 @@ bridge_fds (struct pollfd const pfd[], void *const buffer, const size_t buflen,
 #define HTTP_MODE false
 
 #if (PEER_METHODS != PEER_METHOD_CONNECT)
-static void
+__attribute__ ((nonnull)) static void
 proxy (int const fd,
        /* https_mode: use macro HTTPS_MODE (CONNECT request) or HTTP_MODE */
-       bool const https_mode)
+       bool const https_mode, char *const buffer, const size_t buflen)
 {
   int err = -1;
-  char buffer[REQUEST_MAX] = { 0 };
   int buff_len = -1;
   char request[REQUEST_MAX] = { 0 };
   int req_len = -1;
@@ -228,7 +227,7 @@ proxy (int const fd,
       if (pfd[FD_LOCAL].revents & POLLIN)
         {
           // read from local fd
-          buff_len = READ_L (buffer, sizeof (buffer) - 1);
+          buff_len = READ_L (buffer, buflen - 1);
           if (buff_len < 1)
             {
               ERR_print_errors_fp (stderr);
@@ -239,7 +238,7 @@ proxy (int const fd,
             {
               *(buffer + buff_len) = '\0';
 #ifndef NDEBUG
-              printf ("REQUEST_MAX is: %zubytes\n", sizeof (buffer));
+              printf ("REQUEST_MAX is: %zubytes\n", buflen);
               printf ("Request length is: %dbytes\n", buff_len);
               printf ("Request is \n\n%s\n", buffer);
 #endif
@@ -299,7 +298,7 @@ proxy (int const fd,
       if (pfd[FD_REMOTE].revents & POLLIN)
         {
           // read remote via READ
-          buff_len = READ_R (buffer, sizeof (buffer));
+          buff_len = READ_R (buffer, buflen);
           if (buff_len < 1)
             {
               perror ("READ_REMOTE error");
@@ -328,7 +327,7 @@ proxy (int const fd,
 #endif
                   struct ssl_obj sslobj
                       = { ssl_local, (SSL *)(long)ssl_remote };
-                  bridge_fds (pfd, buffer, sizeof (buffer), &sslobj);
+                  bridge_fds (pfd, buffer, buflen, &sslobj);
                   goto end;
                 }
             }
@@ -362,13 +361,13 @@ end2:
  */
 __attribute__ ((nonnull)) static void
 proxy_connect (int const fd, const char *restrict const host,
-               unsigned short const port)
+               unsigned short const port, char *const buffer,
+               const size_t buflen)
 {
 #ifndef NDEBUG
   fprintf (stderr, "proxy_connect mode\n");
 #endif
-  int fd_remote = -1;
-  fd_remote = connect_remote_server ();
+  const int fd_remote = connect_remote_server ();
   if (fd_remote < 0)
     {
       // TODO: give better error code
@@ -378,9 +377,8 @@ proxy_connect (int const fd, const char *restrict const host,
     }
 
   // send custom CONNECT request on remote peer
-  char buffer[REQUEST_MAX] = { 0 };
   int len = 0;
-  len = snprintf (buffer, sizeof (buffer), req_hdr_fmt_connect, host, port);
+  len = snprintf (buffer, buflen, req_hdr_fmt_connect, host, port);
 #ifndef NDEBUG
   fprintf (stderr, "Custom connect resquest is \n%s\n", buffer);
 #endif
@@ -397,7 +395,7 @@ proxy_connect (int const fd, const char *restrict const host,
   pfd[FD_LOCAL].fd = fd;
   pfd[FD_LOCAL].events = POLLIN;
 
-  bridge_fds (pfd, buffer, sizeof (buffer), NULL);
+  bridge_fds (pfd, buffer, buflen, NULL);
 
 proxy_end:
   close (fd_remote);
@@ -408,7 +406,7 @@ proxy_end:
 int
 server (int const fd)
 {
-  char request[REQUEST_MAX] = { 0 };
+  char buffer[REQUEST_MAX] = { 0 };
 
   char host[HOST_MAX] = { 0 };
   unsigned short port = 0;
@@ -418,7 +416,7 @@ server (int const fd)
       ssize_t request_len;
       const char connect[7] = "CONNECT";
 
-      request_len = recv (fd, (void *)request, sizeof (connect), MSG_PEEK);
+      request_len = recv (fd, (void *)buffer, sizeof (connect), MSG_PEEK);
       if (sizeof (connect) != request_len)
         {
 #ifndef NDEBUG
@@ -426,13 +424,13 @@ server (int const fd)
 #endif
           break;
         }
-      *(request + request_len) = '\0';
+      *(buffer + request_len) = '\0';
 
       int err = -1;
-      err = strncmp (request, connect, sizeof (connect));
+      err = strncmp (buffer, connect, sizeof (connect));
       if (err == 0)
         {
-          request_len = read (fd, (void *)request, sizeof (request));
+          request_len = read (fd, (void *)buffer, sizeof (buffer));
           if (request_len < 1)
             {
 #ifndef NDEBUG
@@ -441,19 +439,19 @@ server (int const fd)
               break;
             }
 #ifndef NDEBUG
-          printf ("Request is \n%s\n", request);
+          printf ("Request is \n%s\n", buffer);
 #endif
 
-          err = parse_connect_request (request, host, &port);
+          err = parse_connect_request (buffer, host, &port);
           if (err)
             {
               write (fd, response_err, sizeof (response_err) - 1);
               continue;
             }
 #if defined PEER_CONNECT_CUSTOM_HOST
-          proxy_connect (fd, host, port);
+          proxy_connect (fd, host, port, buffer, sizeof (buffer));
 #else
-          proxy (fd, HTTPS_MODE);
+          proxy (fd, HTTPS_MODE, buffer, sizeof (buffer));
 
 #endif
         }
@@ -464,7 +462,7 @@ server (int const fd)
           fprintf (stderr, "http not supported\n");
           close (fd);
 #else
-          proxy (fd, HTTP_MODE);
+          proxy (fd, HTTP_MODE, buffer, sizeof (buffer));
 #endif
         }
     }
