@@ -27,28 +27,19 @@
 static const char response_err[] = "HTTP/1.1 400 Bad request\r\n\r\n";
 static const char response_ok[] = "HTTP/1.1 200 OK\r\n\r\n";
 
-typedef int (*WRITE_fn) (SSL *fd, const void *buf, int n);
-typedef int (*READ_fn) (SSL *ssl, void *buf, int n);
-struct ssl_obj
-{
-  SSL *ssl_local;
-  SSL *ssl_remote;
-};
+typedef int (*WRITE_fn) (SSL *fd, const void *buf, int buflen);
+typedef int (*READ_fn) (SSL *ssl, void *buf, int bufflen);
 
 /*
- * bridges two file descriptors in pfd
- * will only return on error without closing fd in pfd
+ * bridges two file descriptors
+ * will only return on error without closing file descriptors
  *
- * pfd must be an array of size two. Eg. struct pollfd pfd[2]
- * and filled with two different fd and pfd->events equals POLLIN
- * see sanity checks inside this function for more insight
- *
- * ssl_objs can be null if not dealing with ssl.
- * 	It's members must default to NULL (zero).
+ * ssl_local/ssl_remote must be SSL instances of fd_local/fd_remote
+ * 	or NULL (or same as fd_local/fd_remote) if not using SSL
  */
-__attribute__ ((nonnull (1, 2))) static void
-bridge_fds (struct pollfd const pfd[], void *const buffer, const size_t buflen,
-            struct ssl_obj *ssl_objs)
+__attribute__ ((nonnull (3))) static void
+bridge_fds (int const fd_local, int const fd_remote, void *const buffer,
+            const size_t buflen, SSL *ssl_local, SSL *ssl_remote)
 {
   /* Macro READ_L/READ_R, WRITE_L/WRITE_R read/write to local/remote peers
    * using READ_LOCAL/READ_REMOTE, WRITE_LOCAL/WRITE_REMOTE function pointers
@@ -56,55 +47,50 @@ bridge_fds (struct pollfd const pfd[], void *const buffer, const size_t buflen,
    * be a file descriptor for read/write or pointer to SSL * object for
    * SSL_read/SSL_write
    * TODO: better error message for WRITE_REMOTE and READ_REMOTE
-   * TODO: WRITE_fn should be global variable (only threaded not
-   * multiplexed-io)*/
+   */
 #define WRITE_L(buf, len) WRITE_LOCAL (ssl_local, (buf), (len))
 #define WRITE_R(buf, len) WRITE_REMOTE (ssl_remote, (buf), (len))
 #define READ_L(buf, len) READ_LOCAL (ssl_local, (buf), (len))
 #define READ_R(buf, len) READ_REMOTE (ssl_remote, (buf), (len))
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
-  WRITE_fn WRITE_LOCAL = write, WRITE_REMOTE = write;
-  READ_fn READ_LOCAL = read, READ_REMOTE = read;
-#pragma GCC diagnostic pop
+  WRITE_fn WRITE_LOCAL = SSL_write, WRITE_REMOTE = SSL_write;
+  READ_fn READ_LOCAL = SSL_read, READ_REMOTE = SSL_read;
 
-  /* sanity checks */
-  if (POLLIN != pfd[0].events || POLLIN != pfd[1].events
-      || pfd[0].fd == pfd[1].fd || 32 > buflen)
+#ifndef NDEBUG
+  if (fd_local == fd_remote || 0 > fd_local || 0 > fd_remote || 32 > buflen
+      || ((ssl_local || ssl_remote) && (ssl_local == ssl_remote)))
     {
       fprintf (stderr, "%s:%d sanity checks failed\n", __FILE__, __LINE__);
       return;
     }
-
-  SSL *ssl_local = (SSL *)(long)pfd[FD_LOCAL].fd;
-  SSL *ssl_remote = (SSL *)(long)pfd[FD_REMOTE].fd;
-  if (NULL != ssl_objs)
-    {
-      void *tmp = ssl_objs->ssl_local;
-      if (tmp && (tmp != (void *)(long)pfd[FD_LOCAL].fd))
-        {
-          ssl_local = tmp;
-          READ_LOCAL = SSL_read;
-          WRITE_LOCAL = SSL_write;
-        }
-      tmp = ssl_objs->ssl_remote;
-      if (tmp && (tmp != (void *)(long)pfd[FD_REMOTE].fd))
-        {
-          ssl_remote = tmp;
-          READ_REMOTE = SSL_read;
-          WRITE_REMOTE = SSL_write;
-        }
-    }
-
-    // sanity check
-#ifndef NDEBUG
-  if (ssl_remote == ssl_local)
-    fprintf (stderr, "ssl_romote and ssl_local is same\n");
 #endif
 
+  if (NULL == ssl_local || (SSL *)(long)fd_local == ssl_local)
+    {
+      ssl_local = (SSL *)(long)fd_local;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
+      READ_LOCAL = read;
+      WRITE_LOCAL = write;
+#pragma GCC diagnostic pop
+    }
+  if (NULL == ssl_remote || (SSL *)(long)fd_remote == ssl_remote)
+    {
+      ssl_remote = (SSL *)(long)fd_remote;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
+      READ_REMOTE = read;
+      WRITE_REMOTE = write;
+#pragma GCC diagnostic pop
+    }
+
+  struct pollfd pfd[POLLFDS] = { 0 };
+  pfd[FD_REMOTE].fd = fd_remote;
+  pfd[FD_REMOTE].events = POLLIN;
+  pfd[FD_LOCAL].fd = fd_local;
+  pfd[FD_LOCAL].events = POLLIN;
   do
     {
-      if (poll ((struct pollfd *)pfd, POLLFDS, -1) < 1)
+      if (poll (pfd, POLLFDS, -1) < 1)
         {
           perror ("poll failed");
           break;
@@ -325,9 +311,8 @@ proxy (int const fd,
                   write (STDERR_FILENO, buffer, buff_len);
                   fprintf (stderr, "\nWeb socket mode activated\n");
 #endif
-                  struct ssl_obj sslobj
-                      = { ssl_local, (SSL *)(long)ssl_remote };
-                  bridge_fds (pfd, buffer, buflen, &sslobj);
+                  bridge_fds (fd, fd_remote, buffer, buflen, ssl_local,
+                              (SSL *)(long)ssl_remote);
                   goto end;
                 }
             }
@@ -389,13 +374,7 @@ proxy_connect (int const fd, const char *restrict const host,
     }
 
   // bridge local fd with remote
-  struct pollfd pfd[POLLFDS] = { 0 };
-  pfd[FD_REMOTE].fd = fd_remote;
-  pfd[FD_REMOTE].events = POLLIN;
-  pfd[FD_LOCAL].fd = fd;
-  pfd[FD_LOCAL].events = POLLIN;
-
-  bridge_fds (pfd, buffer, buflen, NULL);
+  bridge_fds (fd, fd_remote, buffer, buflen, NULL, NULL);
 
 proxy_end:
   close (fd_remote);
