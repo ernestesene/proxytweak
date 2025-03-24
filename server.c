@@ -250,8 +250,7 @@ proxy (int const fd,
               if (req_len < 1)
                 {
                   err = WRITE_L (response_err, sizeof (response_err) - 1);
-                  if (err < 1)
-                    goto end;
+                  goto end;
                 }
               else
                 {
