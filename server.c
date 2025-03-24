@@ -27,49 +27,6 @@
 static const char response_err[] = "HTTP/1.1 400 Bad request\r\n\r\n";
 static const char response_ok[] = "HTTP/1.1 200 OK\r\n\r\n";
 
-#if defined REDIRECT_HTTP || defined REDIRECT_HTTPS
-__attribute__ ((nonnull)) static void
-redirect (int const fd, char *restrict const req_buff, size_t const buff_len)
-{
-  const char response_redirect[]
-      = "HTTP/1.1 301 Moved Permanently\r\nConnection: Close\r\nLocation: "
-#ifdef REDIRECT_HTTP
-      HTTPS_PROTO
-#elif defined REDIRECT_HTTPS
-      HTTP_PROTO
-#endif
-        "%s\r\n\r\n";
-
-  ssize_t len;
-  len = read (fd, req_buff, buff_len);
-  if (len < 1)
-    goto err;
-  *(req_buff + buff_len) = '\0';
-
-  char *bare_url = http_bare_url (req_buff);
-  if (bare_url == NULL)
-    goto err;
-  char buff[RESPONSE_MAX];
-  len = snprintf (buff, sizeof (buff), response_redirect, bare_url);
-  if (len < 1)
-    {
-      perror ("redirect generator");
-      goto err;
-    }
-#ifndef NDEBUG
-  fprintf (stderr, "http redirect ===> \n%s\n", buff);
-#endif
-  /* redirect to https */
-  write (fd, buff, len);
-  goto ret;
-
-err:
-  write (fd, response_err, sizeof (response_err) - 1);
-ret:
-  close (fd);
-}
-#endif
-
 typedef int (*WRITE_fn) (SSL *fd, const void *buf, int n);
 typedef int (*READ_fn) (SSL *ssl, void *buf, int n);
 struct ssl_obj
@@ -189,20 +146,14 @@ bridge_fds (struct pollfd const pfd[], void *const buffer, const size_t buflen,
   while (1);
 }
 
-#ifndef REDIRECT_HTTP
 #define HTTPS_MODE true
 #define HTTP_MODE false
-#endif
 
 #if (PEER_METHODS != PEER_METHOD_CONNECT)
 static void
-proxy (int const fd
-#ifndef REDIRECT_HTTP
-       ,
+proxy (int const fd,
        /* https_mode: use macro HTTPS_MODE (CONNECT request) or HTTP_MODE */
-       bool const https_mode
-#endif
-)
+       bool const https_mode)
 {
   int err = -1;
   char buffer[REQUEST_MAX] = { 0 };
@@ -241,8 +192,6 @@ proxy (int const fd
       goto end;                                                               \
   }
 
-/* if https only */
-#ifndef REDIRECT_HTTP
   WRITE_fn WRITE_LOCAL = SSL_write;
   READ_fn READ_LOCAL = SSL_read;
 
@@ -258,15 +207,8 @@ proxy (int const fd
       WRITE_LOCAL = write;
       READ_LOCAL = read;
 #pragma GCC diagnostic pop
-
       ssl_local = (SSL *)(long)fd;
     }
-#else
-#define WRITE_LOCAL SSL_write
-#define READ_LOCAL SSL_read
-  LOCAL_HANSHAKE ();
-
-#endif
 
   // proxy_https main loop
   struct pollfd pfd[POLLFDS] = { 0 };
@@ -302,13 +244,9 @@ proxy (int const fd
               printf ("Request is \n\n%s\n", buffer);
 #endif
               // modify request
-              req_len = transform_req (buffer, buff_len, request,
-                                       sizeof (request), &payload, &payload_len
-#ifndef REDIRECT_HTTP
-                                       ,
-                                       https_mode
-#endif
-              );
+              req_len
+                  = transform_req (buffer, buff_len, request, sizeof (request),
+                                   &payload, &payload_len, https_mode);
               if (req_len < 1)
                 {
                   err = WRITE_L (response_err, sizeof (response_err) - 1);
@@ -398,11 +336,7 @@ proxy (int const fd
     }
   while (1);
 end:
-  if (
-#ifndef REDIRECT_HTTP
-      https_mode &&
-#endif
-      ssl_local)
+  if (https_mode && ssl_local)
     tls_shutdown (ssl_local);
 #if (PEER_USE_TLS)
   if (ssl_remote)
@@ -519,20 +453,13 @@ server (int const fd)
 #if defined PEER_CONNECT_CUSTOM_HOST
           proxy_connect (fd, host, port);
 #else
-          proxy (fd
-#ifndef REDIRECT_HTTP
-                 ,
-                 HTTPS_MODE
-#endif
-          );
+          proxy (fd, HTTPS_MODE);
 
 #endif
         }
       else
         {
-#if defined REDIRECT_HTTP
-          redirect (fd, request, sizeof (request));
-#elif (PEER_METHODS == PEER_METHOD_CONNECT)
+#if (PEER_METHODS == PEER_METHOD_CONNECT)
 #warning "http not supported"
           fprintf (stderr, "http not supported\n");
           close (fd);

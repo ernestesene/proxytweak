@@ -9,13 +9,6 @@
 /* program listen port */
 #define LISTEN_PORT 8888 /* #tweak */
 
-/* redirect http to https
- * lower runtime overhead */
-//#define REDIRECT_HTTP
-/* redirect https to http
- * saves local encryption/decryption overhead */
-//#define REDIRECT_HTTPS
-
 /* bypass worker for "http" methods supported by peer
  * note: only GET,POST,HEAD methods is implemented */
 #define TWEAK_BYPASS_WORKER_FOR_HTTP /* #tweak comment to disable */
@@ -69,15 +62,6 @@ extern const char *const req_hdr_fmt_connect;
 #warning port 443 should use TLS
 #endif
 
-#if defined REDIRECT_HTTP && defined REDIRECT_HTTPS
-#error only one redirect is allowed
-
-#elif defined REDIRECT_HTTP
-#warning "not compatible with android network connectivity test"
-
-#elif defined REDIRECT_HTTPS
-#warning "REDIRECT_HTTPS not implemented"
-#endif
 /* --- */
 
 /* --- anti-collision measures */
@@ -86,10 +70,6 @@ extern const char *const req_hdr_fmt_connect;
 #if PEER_TYPE_CLOUDFLARE
 #warning "TWEAK_BYPASS_WORKER_FOR_HTTP disabled: CLOUDFLARE not an http proxy"
 #undef TWEAK_BYPASS_WORKER_FOR_HTTP
-
-#elif defined REDIRECT_HTTP
-#warning "TWEAK_BYPASS_WORKER_FOR_HTTP: REDIRECT_HTTP disabled"
-#undef REDIRECT_HTTP
 #endif /* if PEER_TYPE_CLOUDFLARE */
 
 #if PEER_METHODS == PEER_METHOD_CONNECT

@@ -25,13 +25,13 @@ extern short parse_connect_request (char *__restrict const req,
 extern ssize_t transform_req (char *__restrict const in, const size_t in_len,
                               char *__restrict const out, const size_t out_max,
                               const char **__restrict const payload,
-                              size_t *__restrict const payload_len
-#ifndef REDIRECT_HTTP
-                              ,
-                              const bool https_mode
-#endif
-                              ) __attribute__ ((nonnull));
+                              size_t *__restrict const payload_len,
+                              const bool https_mode) __attribute__ ((nonnull));
 
+/* TODO: remove (not used)
+ * possible use case is embedding url in http header and forget about
+ * /proxs and /proxh manipulations
+ */
 /* returns pointer to url without protocol */
 char *http_bare_url (char *__restrict const request) __attribute__ ((nonnull));
 #endif /* ifndef HTTP_HELPER_H */

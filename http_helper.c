@@ -57,12 +57,7 @@ parse_connect_request (char *restrict const req, char *restrict const host,
 /* TODO: possible buffer overflow here */
 __attribute__ ((nonnull)) static short
 parse_request (char *restrict const _request, const size_t request_len,
-               struct request *restrict const req
-#ifndef REDIRECT_HTTP
-               ,
-               const bool https_mode
-#endif
-)
+               struct request *restrict const req, const bool https_mode)
 {
 
   char *needle;
@@ -88,7 +83,6 @@ parse_request (char *restrict const _request, const size_t request_len,
   req->path = strtok_r (NULL, " ", &needle);
   if (!req->path)
     return -1;
-#ifndef REDIRECT_HTTP
   if (!https_mode)
     {
       req->path += sizeof (HTTP_PROTO) - 1;
@@ -96,7 +90,6 @@ parse_request (char *restrict const _request, const size_t request_len,
       if (!req->path)
         return -1;
     }
-#endif
   /* HTTP/1.1\r\n */
   if (!strtok_r (NULL, "\n", &needle))
     return -1;
@@ -142,12 +135,7 @@ ssize_t
 transform_req (char *restrict const in, const size_t in_len,
                char *restrict const out, const size_t out_max,
                const char **restrict const payload,
-               size_t *restrict const payload_len
-#ifndef REDIRECT_HTTP
-               ,
-               const bool https_mode
-#endif
-)
+               size_t *restrict const payload_len, const bool https_mode)
 {
   struct request req = { 0 };
   ssize_t len;
@@ -157,12 +145,7 @@ transform_req (char *restrict const in, const size_t in_len,
       fprintf (stderr, "transform_request: invalid input\n");
       return -1;
     }
-  if (parse_request (in, in_len, &req
-#ifndef REDIRECT_HTTP
-                     ,
-                     https_mode
-#endif
-                     ))
+  if (parse_request (in, in_len, &req, https_mode))
     return -1;
   *payload = req.payload;
   *payload_len = req.payload_length;
@@ -219,7 +202,6 @@ transform_req (char *restrict const in, const size_t in_len,
   if (bypassed)
     goto ret;
 #endif
-#ifndef REDIRECT_HTTP
   if (!https_mode)
     {
       /* change /proxs/ to /proxh/ */
@@ -232,7 +214,6 @@ transform_req (char *restrict const in, const size_t in_len,
       tmp += 5;
       *tmp = 'h';
     }
-#endif
 
 #ifdef TWEAK_BYPASS_WORKER_FOR_HTTP
 ret:
