@@ -419,10 +419,10 @@ server (int const fd)
       const char connect[7] = "CONNECT";
 
       request_len = recv (fd, (void *)request, sizeof (connect), MSG_PEEK);
-      if (request_len < 1)
+      if (sizeof (connect) != request_len)
         {
 #ifndef NDEBUG
-          perror ("Server read error, or connection closed");
+          perror ("proxy request read error");
 #endif
           break;
         }
