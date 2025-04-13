@@ -1,6 +1,13 @@
 #include "tls_helper.h"
+#include <stdio.h>
+#include <unistd.h>
 
 #include "tweak.h"
+
+#define SSL_CERT_FILE "selfsign.crt"
+#define SSL_KEY_FILE "selfsign.key"
+static char ssl_cert[256] = SSL_CERT_FILE;
+static char ssl_key[256] = SSL_KEY_FILE;
 
 enum ssl_method
 {
@@ -56,10 +63,44 @@ ssl_create_context (enum ssl_method const method)
 int
 init_tls_helper ()
 {
+  /* Check for certificate files selfsign.crt and selfsign.key
+   * Check in current directory
+   * On Linux check ~/.config/$(PROGRAM_NAME)/ if above fails
+   *
+   * TODO create new selfsign certificate in memory then proceed
+   */
+
+  if ((0 != access (ssl_cert, R_OK)) && (0 != access (ssl_key, R_OK)))
+    {
+#ifndef __linux
+      goto failure;
+#else
+      const char *const homedir = getenv ("HOME");
+      if (NULL == homedir)
+        goto failure;
+      snprintf (ssl_cert, sizeof (ssl_cert), "%s/.config/%s/%s", homedir,
+                PROGRAM_NAME, SSL_CERT_FILE);
+      snprintf (ssl_key, sizeof (ssl_key), "%s/.config/%s/%s", homedir,
+                PROGRAM_NAME, SSL_KEY_FILE);
+      if ((0 != access (ssl_cert, R_OK)) && (0 != access (ssl_key, R_OK)))
+        goto failure;
+
+#endif /* ifndef __linux */
+    }
+
   ctx_server = ssl_create_context (server_method);
   ctx_client = ssl_create_context (client_method);
   if (ctx_server && ctx_client)
     return 0;
+
+failure:
+#ifndef NDEBUG
+  fprintf (stderr,
+           "Fail to initialize SSL\nCheck certificates in paths\n"
+           "ssl_cert path: %s\nssl_key path: %s\n",
+           ssl_cert, ssl_key);
+#endif
+
   return 1;
 }
 static int
@@ -69,14 +110,12 @@ ssl_configure_context (SSL_CTX *restrict const ctx,
   /* Set the key and cert to use */
   if (method == server_method)
     {
-      if (SSL_CTX_use_certificate_file (ctx, "selfsign.crt", SSL_FILETYPE_PEM)
-          <= 0)
+      if (SSL_CTX_use_certificate_file (ctx, ssl_cert, SSL_FILETYPE_PEM) <= 0)
         {
           ERR_print_errors_fp (stderr);
           return 1;
         }
-      if (SSL_CTX_use_PrivateKey_file (ctx, "selfsign.key", SSL_FILETYPE_PEM)
-          <= 0)
+      if (SSL_CTX_use_PrivateKey_file (ctx, ssl_key, SSL_FILETYPE_PEM) <= 0)
         {
           ERR_print_errors_fp (stderr);
           return 1;

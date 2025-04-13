@@ -11,6 +11,9 @@ Compile with
 Run with
 	$./proxytweak
 NOTE: selfsign.crt and selfsign.key must be present in working directory
+		or in ~/.config/${PROGRAM_NAME}/ on Linux
+WHERE: ${PROGRAM_NAME} is the name of this program as written in the Makefile variable
+ "PROGRAM"
 
 
 On Mingw (Windows)

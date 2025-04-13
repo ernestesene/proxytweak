@@ -29,6 +29,7 @@ $(PROGRAM): $(OBJS)
 
 tweak.h: tweak_in.h
 	$(CC) -E -dD $^ | grep -Ev "# |#define _|linux|unix" > tweak.h
+	echo "#define PROGRAM_NAME \"$(PROGRAM)\"" >> $@
 
 tags: *.c
 	ctags -R --kinds-C=+pxD *.h *.c
