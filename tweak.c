@@ -1,3 +1,10 @@
+/* To understand what's going on here pass this file through the preprocessor
+ * $gcc -E tweak.c -o /tmp/tweak.cc
+ * then check /tmp/tweak.cc for req_hdr_fmt_* variables
+ *
+ * values of req_hdr_fmt_* variables depends on configurations in tweak_in.h
+ */
+
 #include "tweak.h"
 
 #include "http_helper.h"
