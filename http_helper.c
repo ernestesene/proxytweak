@@ -156,20 +156,14 @@ transform_req (char *restrict const in, const size_t in_len,
   bool bypassed = false;
   if (!https_mode)
     {
-      if ((PEER_METHODS & PEER_METHOD_GET) && (*req.method == 'G'))
-        goto bypass_worker;
-      else if ((PEER_METHODS & PEER_METHOD_POST) && (*req.method == 'P'))
-        goto bypass_worker;
-      else if ((PEER_METHODS & PEER_METHOD_HEAD) && (*req.method == 'H'))
-        goto bypass_worker;
-      else
-        goto out;
-
-    bypass_worker:
-      req_fmt1 = req_hdr_fmt_1;
-      req_fmt2 = req_hdr_fmt_2;
-      bypassed = true;
-    out:;
+      if (((PEER_METHODS & PEER_METHOD_GET) && (*req.method == 'G'))
+          || ((PEER_METHODS & PEER_METHOD_POST) && (*req.method == 'P'))
+          || ((PEER_METHODS & PEER_METHOD_HEAD) && (*req.method == 'H')))
+        {
+          req_fmt1 = req_hdr_fmt_1;
+          req_fmt2 = req_hdr_fmt_2;
+          bypassed = true;
+        }
     }
 #endif /* ifdef TWEAK_BYPASS_WORKER_FOR_HTTP */
 
