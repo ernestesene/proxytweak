@@ -85,10 +85,19 @@ parse_request (char *restrict const _request, const size_t request_len,
     return -1;
   if (!https_mode)
     {
-      req->path += sizeof (HTTP_PROTO) - 1;
-      req->path = strchr (req->path, '/');
-      if (!req->path)
-        return -1;
+      /* strip http://host.com from path of proxied http requests
+       * shall not affect non-proxied http request
+       *
+       * Example: header GET http://host.com/path/to/file.txt HTTP/1.1
+       * shall select path as /path/to/file.txt
+       */
+      if ('/' != *req->path)
+        {
+          req->path += sizeof (HTTP_PROTO) - 1;
+          req->path = strchr (req->path, '/');
+          if (!req->path)
+            return -1;
+        }
     }
   /* HTTP/1.1\r\n */
   if (!strtok_r (NULL, "\n", &needle))
