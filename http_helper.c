@@ -138,6 +138,22 @@ parse_request (char *restrict const _request, const size_t request_len,
   else
     *needle = '\0'; /* Null terminate req->header1 */
 
+  /*  Only on some clients, example simple-obfs plugin for shadowsocks-libev
+   * obfs-local -s 127.0.0.1 -p 8888 --obfs http -l 8887 -v \
+   *  --obfs-host uk.opensocks.site:1234
+   *
+   *  will send host as uk.opensocks.site:1234:8888
+   *  trailing ":8888" should be removed
+   */
+  needle = strchr (req->host, ':');
+  if (needle)
+    {
+      needle++;
+      needle = strchr (needle, ':');
+      if (needle)
+        *needle = 0;
+    }
+
   return 0;
 }
 ssize_t
