@@ -25,7 +25,7 @@
 #define MY_METHOD "mymethod: %s\r\n"
 #endif
 
-#define TMP1 "%s " PRE_PATH "%s%s HTTP/1.1\r\nHost: " PEER_CUSTOM_HOST "\r\n%s"
+#define TMP1 "%s " PRE_PATH "%s%s HTTP/%s\r\nHost: " PEER_CUSTOM_HOST "\r\n%s"
 #define TMP2 "\r\n" MY_METHOD "\r\n"
 
 /* includes header2 */

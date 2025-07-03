@@ -18,6 +18,7 @@ struct request
   const char *method;
   const char *path;
   const char *host;
+  const char *httpVer; /* Version in "HTTP/1.1" is "1.1" */
   const char *header1; /* before "Host: foo.bar" */
   const char *header2; /* after "Host: foo.bar\r\n" */
 };
@@ -102,8 +103,12 @@ parse_request (char *restrict const _request, const size_t request_len,
         }
     }
   /* HTTP/1.1\r\n */
-  if (!strtok_r (NULL, "\n", &needle))
+  req->httpVer = needle + 5;
+  needle = strchr (req->httpVer, '\r');
+  if (!needle)
     return -1;
+  *needle = '\0';
+  needle += 2;
 
   err = strncmp (needle, "Host: ", 6);
   if (err == 0)
@@ -203,10 +208,10 @@ transform_req (char *restrict const in, const size_t in_len,
 #endif
   if (req.header2 != NULL)
     len = snprintf (out, out_max, req_fmt1, REQ_METHOD, req.host, req.path,
-                    req.header1, req.header2 REQ_MYMETHOD);
+                    req.httpVer, req.header1, req.header2 REQ_MYMETHOD);
   else
     len = snprintf (out, out_max, req_fmt2, REQ_METHOD, req.host, req.path,
-                    req.header1 REQ_MYMETHOD);
+                    req.httpVer, req.header1 REQ_MYMETHOD);
 
   if (len < 1)
     {
