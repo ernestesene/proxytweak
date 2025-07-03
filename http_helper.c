@@ -94,9 +94,11 @@ parse_request (char *restrict const _request, const size_t request_len,
       if ('/' != *req->path)
         {
           req->path += sizeof (HTTP_PROTO) - 1;
-          req->path = strchr (req->path, '/');
-          if (!req->path)
-            return -1;
+          const char *const tmp = strchr (req->path, '/');
+          if (tmp)
+            req->path = tmp;
+          else
+            req->path = "/";
         }
     }
   /* HTTP/1.1\r\n */
