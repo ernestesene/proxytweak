@@ -19,6 +19,7 @@ struct request
   const char *path;
   const char *host;
   const char *httpVer; /* Version in "HTTP/1.1" is "1.1" */
+  bool treatAsHTTPS;   /* Treat invalid HTTP request as HTTPS */
   const char *header1; /* before "Host: foo.bar" */
   const char *header2; /* after "Host: foo.bar\r\n" */
 };
@@ -86,21 +87,31 @@ parse_request (char *restrict const _request, const size_t request_len,
     return -1;
   if (!https_mode)
     {
-      /* strip http://host.com from path of proxied http requests
-       * shall not affect non-proxied http request
+      /* if path begins with http://a.b/ab.c but not /ab.c
+       * then it is a valid http request to proxy
        *
-       * Example: header GET http://host.com/path/to/file.txt HTTP/1.1
-       * shall select path as /path/to/file.txt
+       * else treat this request at invalid HTTPS request (without CONNECT)
        */
       if ('/' != *req->path)
         {
-          req->path += sizeof (HTTP_PROTO) - 1;
+          /* Some client send "GET https://a.b/ab.c" instead of using CONNECT
+           * Detect this and treat as HTTPS */
+          if (0 == strncmp (req->path, HTTPS_PROTO, sizeof (HTTPS_PROTO) - 1))
+            req->treatAsHTTPS = true;
+
+          /* strip http://host.com from path of proxied http requests
+           * Example: "GET http://host.com/path/to/file.txt HTTP/1.1"
+           * shall select path as "/path/to/file.txt"
+           */
+          req->path += sizeof (HTTP_PROTO);
           const char *const tmp = strchr (req->path, '/');
           if (tmp)
             req->path = tmp;
           else
             req->path = "/";
         }
+      else
+        req->treatAsHTTPS = true;
     }
   /* HTTP/1.1\r\n */
   req->httpVer = needle + 5;
@@ -186,7 +197,7 @@ transform_req (char *restrict const in, const size_t in_len,
   const char *req_fmt2 = req_hdr_fmt_worker2;
 #ifdef TWEAK_BYPASS_WORKER_FOR_HTTP
   bool bypassed = false;
-  if (!https_mode)
+  if (!https_mode && !req.treatAsHTTPS)
     {
       if (((PEER_METHODS & PEER_METHOD_GET) && (*req.method == 'G'))
           || ((PEER_METHODS & PEER_METHOD_POST) && (*req.method == 'P'))
@@ -228,7 +239,7 @@ transform_req (char *restrict const in, const size_t in_len,
   if (bypassed)
     goto ret;
 #endif
-  if (!https_mode)
+  if (!https_mode && !req.treatAsHTTPS)
     {
       /* change /proxs/ to /proxh/ */
       char *tmp = strstr (out, "/proxs/");
