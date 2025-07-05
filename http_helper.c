@@ -196,16 +196,27 @@ transform_req (char *restrict const in, const size_t in_len,
   const char *req_fmt1 = req_hdr1_fmt_worker;
   const char *req_fmt2 = req_hdr2_fmt_worker;
 #ifdef TWEAK_BYPASS_WORKER_FOR_HTTP
-  bool bypassed = false;
   if (!https_mode && !req.treatAsHTTPS)
     {
       if (((PEER_METHODS & PEER_METHOD_GET) && (*req.method == 'G'))
           || ((PEER_METHODS & PEER_METHOD_POST) && (*req.method == 'P'))
           || ((PEER_METHODS & PEER_METHOD_HEAD) && (*req.method == 'H')))
         {
+          /* bypass worker here */
           req_fmt1 = req_hdr1_fmt_bypassed;
           req_fmt2 = req_hdr2_fmt_bypassed;
-          bypassed = true;
+          if (req.header2 != NULL)
+            len = snprintf (out, out_max, req_fmt2, req.method, req.host,
+                            req.path, req.httpVer, req.header1, req.header2);
+          else
+            len = snprintf (out, out_max, req_fmt1, req.method, req.host,
+                            req.path, req.httpVer, req.header1);
+          if ((len < 1) || (len >= (ssize_t)out_max))
+            {
+              perror ("Error:bypass:transform_request(): snprintf");
+              return -1;
+            }
+          goto ret;
         }
     }
 #endif /* ifdef TWEAK_BYPASS_WORKER_FOR_HTTP */
@@ -218,27 +229,17 @@ transform_req (char *restrict const in, const size_t in_len,
 #define REQ_MYMETHOD , req.method
 #endif
   if (req.header2 != NULL)
-    len = snprintf (out, out_max, req_fmt2, REQ_METHOD, req.host, req.path,
-                    req.httpVer, req.header1, req.header2 REQ_MYMETHOD);
+    len = snprintf (out, out_max, req_fmt2, REQ_METHOD, req.httpVer,
+                    req.header1, req.header2, req.host, req.path REQ_MYMETHOD);
   else
-    len = snprintf (out, out_max, req_fmt1, REQ_METHOD, req.host, req.path,
-                    req.httpVer, req.header1 REQ_MYMETHOD);
-
-  if (len < 1)
+    len = snprintf (out, out_max, req_fmt1, REQ_METHOD, req.httpVer,
+                    req.header1, req.host, req.path REQ_MYMETHOD);
+  if ((len < 1) || (len >= (ssize_t)out_max))
     {
       perror ("Error:transform_request(): snprintf");
       return -1;
     }
-  else if ((size_t)len >= out_max)
-    {
-      fprintf (stderr, "Error:transform_request(): output overflow\n");
-      return -1;
-    }
 
-#ifdef TWEAK_BYPASS_WORKER_FOR_HTTP
-  if (bypassed)
-    goto ret;
-#endif
   if (!https_mode && !req.treatAsHTTPS)
     {
       /* change /proxs/ to /proxh/ */
