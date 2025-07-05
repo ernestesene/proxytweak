@@ -15,10 +15,10 @@
 
 /* web worker request information */
 #define WORKER_HOST "router.eroken.workers.dev"
-extern const char *const req_hdr_fmt_worker1;
-extern const char *const req_hdr_fmt_worker2;
-extern const char *const req_hdr_fmt_1;
-extern const char *const req_hdr_fmt_2;
+extern const char *const req_hdr1_fmt_worker;
+extern const char *const req_hdr2_fmt_worker;
+extern const char *const req_hdr1_fmt_bypassed;
+extern const char *const req_hdr2_fmt_bypassed;
 
 extern const char *const req_hdr_fmt_connect;
 /* allowed HTTP methods for peers */

@@ -193,8 +193,8 @@ transform_req (char *restrict const in, const size_t in_len,
   *payload = req.payload;
   *payload_len = req.payload_length;
 
-  const char *req_fmt1 = req_hdr_fmt_worker1;
-  const char *req_fmt2 = req_hdr_fmt_worker2;
+  const char *req_fmt1 = req_hdr1_fmt_worker;
+  const char *req_fmt2 = req_hdr2_fmt_worker;
 #ifdef TWEAK_BYPASS_WORKER_FOR_HTTP
   bool bypassed = false;
   if (!https_mode && !req.treatAsHTTPS)
@@ -203,8 +203,8 @@ transform_req (char *restrict const in, const size_t in_len,
           || ((PEER_METHODS & PEER_METHOD_POST) && (*req.method == 'P'))
           || ((PEER_METHODS & PEER_METHOD_HEAD) && (*req.method == 'H')))
         {
-          req_fmt1 = req_hdr_fmt_1;
-          req_fmt2 = req_hdr_fmt_2;
+          req_fmt1 = req_hdr1_fmt_bypassed;
+          req_fmt2 = req_hdr2_fmt_bypassed;
           bypassed = true;
         }
     }
@@ -218,10 +218,10 @@ transform_req (char *restrict const in, const size_t in_len,
 #define REQ_MYMETHOD , req.method
 #endif
   if (req.header2 != NULL)
-    len = snprintf (out, out_max, req_fmt1, REQ_METHOD, req.host, req.path,
+    len = snprintf (out, out_max, req_fmt2, REQ_METHOD, req.host, req.path,
                     req.httpVer, req.header1, req.header2 REQ_MYMETHOD);
   else
-    len = snprintf (out, out_max, req_fmt2, REQ_METHOD, req.host, req.path,
+    len = snprintf (out, out_max, req_fmt1, REQ_METHOD, req.host, req.path,
                     req.httpVer, req.header1 REQ_MYMETHOD);
 
   if (len < 1)
