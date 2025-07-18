@@ -393,7 +393,7 @@ server (int const fd)
   while (1)
     {
       ssize_t request_len;
-      const char connect[7] = "CONNECT";
+      const char connect[] = "CONNECT";
 
       request_len = recv (fd, (void *)buffer, sizeof (connect), MSG_PEEK);
       if (sizeof (connect) != request_len)
@@ -403,10 +403,10 @@ server (int const fd)
 #endif
           break;
         }
-      *(buffer + request_len) = '\0';
+      *(buffer + request_len - 1) = '\0';
 
       int err = -1;
-      err = strncmp (buffer, connect, sizeof (connect));
+      err = strcmp (connect, buffer);
       if (err == 0)
         {
           request_len = read (fd, (void *)buffer, sizeof (buffer));
