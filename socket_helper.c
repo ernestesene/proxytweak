@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/socket.h>
+#include <unistd.h>
 #endif
 
 #include <stdio.h>
@@ -26,6 +27,12 @@ connect_remote_server ()
     }
 
   fd = socket (PF_INET, SOCK_STREAM, 0);
+  if (-1 == fd)
+    {
+      perror ("socket");
+      return -1;
+    }
+
   addr.sin_family = AF_INET;
   addr.sin_port = htons (PEER_PORT);
   addr.sin_addr = *(struct in_addr *)hostnt->h_addr;
@@ -34,6 +41,7 @@ connect_remote_server ()
   if (err == -1)
     {
       perror ("Connect to remote err");
+      close (fd);
       return -1;
     }
   return fd;

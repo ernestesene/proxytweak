@@ -10,7 +10,9 @@
 #include "http_helper.h"
 
 /* worker request formats */
-#define PROXS "/proxs/"
+/* TODO only to confuse upstream proxy
+ * do better by using random number or date at program startup */
+#define PROXS "/proxs/custom/deafdead.txt"
 
 #if PEER_TYPE_CLOUDFLARE
 #define PRE_PATH PROXS
